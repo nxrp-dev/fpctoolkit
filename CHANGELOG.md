@@ -1,5 +1,8 @@
 ## [Unreleased]
-##
+
+## [1.2.7] - 2026-03-15
+- Update pasls executables for multiple platforms (aarch64/x86_64 for Darwin/Linux/Windows).
+
 ## [1.2.6] - 2026-01-29
 - fix: windows pasls can't run
 - add macOS Gatekeeper bypass for the language server executable.
