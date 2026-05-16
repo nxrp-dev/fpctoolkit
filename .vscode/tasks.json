@@ -4,24 +4,36 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "npm",
-			"script": "watch",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"watch"
+			],
 			"group": "build",
 			"problemMatcher": [],
 			"label": "npm: watch",
 			"detail": "tsc -watch -p ./"
 		},
 		{
-			"type": "npm",
-			"script": "compile",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"compile"
+			],
 			"group": "build",
 			"problemMatcher": [],
 			"label": "npm: compile",
 			"detail": "tsc -p ./"
 		},
 		{
-			"type": "npm",
-			"script": "esbuild",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"esbuild"
+			],
 			"group": {
 				"kind": "build",
 				"isDefault": true
