@@ -1,303 +1,306 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as util from '../common/util';
 
 export interface ProjectTemplate {
     name: string;
-    description: string;
     sourcePath: string;
 }
 
-interface ProjectTemplateNode {
+interface StarterNode {
     name: string;
-    description: string;
     sourcePath: string;
-    isTemplate: boolean;
+    isStarter: boolean;
 }
 
-interface ProjectTemplatePickItem extends vscode.QuickPickItem {
-    node?: ProjectTemplateNode;
-    isBack?: boolean;
+interface StarterPickItem extends vscode.QuickPickItem {
+    node?: StarterNode;
+    goBack?: boolean;
 }
 
 export class ProjectTemplateManager {
-    private static readonly TEMPLATE_ROOT = 'templates';
+    private static readonly StarterRoot = 'templates';
+    private static readonly ProjectNameToken = '{{PROJECT_NAME}}';
+    private static readonly IgnoredTemplateFiles = new Set(['template.json']);
 
     constructor(private readonly workspaceRoot: string) {
     }
 
     public async selectTemplate(): Promise<ProjectTemplate | undefined> {
-        const templateRoot = this.getTemplateRoot();
+        const lStarterRoot = this.getStarterRoot();
 
-        if (!templateRoot || !fs.existsSync(templateRoot)) {
+        if (!lStarterRoot) {
+            vscode.window.showWarningMessage('Nexus Pascal starter folder was not found.');
             return undefined;
         }
 
-        let currentDir = templateRoot;
+        let lCurrentPath = lStarterRoot;
 
         while (true) {
-            const nodes = this.getChildNodes(templateRoot, currentDir);
-            const items: ProjectTemplatePickItem[] = nodes.map(node => ({
-                label: node.name,
-                description: node.isTemplate ? 'Starter' : 'Category',
-                detail: node.description,
-                node: node
-            }));
+            const lItems = this.getPickItems(lStarterRoot, lCurrentPath);
 
-            if (currentDir !== templateRoot) {
-                items.unshift({
-                    label: '$(arrow-left) Back',
-                    isBack: true
-                });
+            if (lCurrentPath !== lStarterRoot) {
+                lItems.unshift({ label: '$(arrow-left) Back', goBack: true });
             }
 
-            if (items.length === 0) {
+            if (lItems.length === 0) {
+                vscode.window.showInformationMessage('No project starters were found in this category.');
                 return undefined;
             }
 
-            const selected = await vscode.window.showQuickPick(items, {
-                placeHolder: this.getPlaceHolder(templateRoot, currentDir)
+            const lSelected = await vscode.window.showQuickPick(lItems, {
+                placeHolder: this.getPickerTitle(lStarterRoot, lCurrentPath)
             });
 
-            if (!selected) {
+            if (!lSelected) {
                 return undefined;
             }
 
-            if (selected.isBack) {
-                currentDir = path.dirname(currentDir);
+            if (lSelected.goBack) {
+                lCurrentPath = path.dirname(lCurrentPath);
                 continue;
             }
 
-            if (!selected.node) {
+            if (!lSelected.node) {
                 return undefined;
             }
 
-            if (selected.node.isTemplate) {
+            if (lSelected.node.isStarter) {
                 return {
-                    name: selected.node.name,
-                    description: selected.node.description,
-                    sourcePath: selected.node.sourcePath
+                    name: lSelected.node.name,
+                    sourcePath: lSelected.node.sourcePath
                 };
             }
 
-            currentDir = selected.node.sourcePath;
+            lCurrentPath = lSelected.node.sourcePath;
         }
     }
 
     public async getAvailableTemplates(): Promise<ProjectTemplate[]> {
-        const templateRoot = this.getTemplateRoot();
+        const lStarterRoot = this.getStarterRoot();
 
-        if (!templateRoot || !fs.existsSync(templateRoot)) {
+        if (!lStarterRoot) {
             return [];
         }
 
-        return this.findTemplates(templateRoot, templateRoot);
+        return this.findStarters(lStarterRoot);
     }
 
-    public async createProjectFromTemplate(template: ProjectTemplate, projectName?: string, targetDir?: string): Promise<void> {
-        const projectDir = targetDir || this.workspaceRoot;
-        const replacementValues = {
-            PROJECT_NAME: projectName || 'newproject'
-        };
+    public async createProjectFromTemplate(ATemplate: ProjectTemplate, AProjectName?: string, ATargetDir?: string): Promise<void> {
+        const lTargetDir = ATargetDir || this.workspaceRoot;
+        const lProjectName = AProjectName || 'newproject';
+        const lCollisions = this.findCollisions(ATemplate.sourcePath, lTargetDir, lProjectName);
 
-        const collisions = this.findCollisions(template.sourcePath, projectDir, replacementValues);
-        if (collisions.length > 0) {
-            const choice = await vscode.window.showWarningMessage(
-                `${collisions.length} file(s) already exist. Overwrite them?`,
+        if (lCollisions.length > 0) {
+            const lChoice = await vscode.window.showWarningMessage(
+                `${lCollisions.length} file(s) already exist. Overwrite them?`,
                 'Overwrite',
                 'Cancel'
             );
 
-            if (choice !== 'Overwrite') {
+            if (lChoice !== 'Overwrite') {
                 return;
             }
         }
 
-        this.copyTemplateDirectory(template.sourcePath, projectDir, replacementValues);
-        await this.openFirstSourceFile(template.sourcePath, projectDir, replacementValues);
-
-        vscode.window.showInformationMessage(`Project created from starter: ${template.name}`);
+        this.copyStarter(ATemplate.sourcePath, lTargetDir, lProjectName);
+        await this.openFirstPascalFile(ATemplate.sourcePath, lTargetDir, lProjectName);
+        vscode.window.showInformationMessage(`Project created from starter: ${ATemplate.name}`);
     }
 
-    private getTemplateRoot(): string | undefined {
-        const extensionPath = vscode.extensions.getExtension('nxrp-dev.nexus-pascal')?.extensionPath;
-
-        if (!extensionPath) {
-            return undefined;
-        }
-
-        return path.join(extensionPath, ProjectTemplateManager.TEMPLATE_ROOT);
+    private getStarterRoot(): string | undefined {
+        const lStarterRoot = util.getExtensionFilePath(ProjectTemplateManager.StarterRoot);
+        return fs.existsSync(lStarterRoot) && fs.statSync(lStarterRoot).isDirectory() ? lStarterRoot : undefined;
     }
 
-    private getChildNodes(templateRoot: string, currentDir: string): ProjectTemplateNode[] {
-        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-        const directories = entries.filter(entry => entry.isDirectory());
-        const nodes = directories.map(directory => {
-            const sourcePath = path.join(currentDir, directory.name);
-            const relativePath = path.relative(templateRoot, sourcePath);
-
-            return {
-                name: this.toFriendlyName(directory.name),
-                description: relativePath.split(path.sep).map(part => this.toFriendlyName(part)).join(' / '),
-                sourcePath: sourcePath,
-                isTemplate: this.hasDirectTemplateFiles(sourcePath)
-            };
-        });
-
-        nodes.sort((left, right) => {
-            if (left.isTemplate !== right.isTemplate) {
-                return left.isTemplate ? 1 : -1;
-            }
-
-            return left.name.localeCompare(right.name);
-        });
-
-        return nodes;
+    private getPickItems(AStarterRoot: string, ACurrentPath: string): StarterPickItem[] {
+        return this.getChildNodes(ACurrentPath)
+            .sort((ALeft, ARight) => this.compareNodes(ALeft, ARight))
+            .map((ANode) => ({
+                label: ANode.name,
+                description: ANode.isStarter ? 'Starter' : 'Category',
+                detail: this.getRelativeFriendlyPath(AStarterRoot, ANode.sourcePath),
+                node: ANode
+            }));
     }
 
-    private findTemplates(templateRoot: string, currentDir: string): ProjectTemplate[] {
-        const templates: ProjectTemplate[] = [];
-        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-        const directories = entries.filter(entry => entry.isDirectory());
+    private getChildNodes(ADirectory: string): StarterNode[] {
+        return fs.readdirSync(ADirectory, { withFileTypes: true })
+            .filter((AEntry) => AEntry.isDirectory())
+            .map((AEntry) => {
+                const lSourcePath = path.join(ADirectory, AEntry.name);
 
-        for (const directory of directories) {
-            const sourcePath = path.join(currentDir, directory.name);
+                return {
+                    name: this.toFriendlyName(AEntry.name),
+                    sourcePath: lSourcePath,
+                    isStarter: this.isStarterDirectory(lSourcePath)
+                };
+            });
+    }
 
-            if (this.hasDirectTemplateFiles(sourcePath)) {
-                const relativePath = path.relative(templateRoot, sourcePath);
-                const pathParts = relativePath.split(path.sep).filter(part => part.length > 0);
-                const templateFolderName = pathParts[pathParts.length - 1] || path.basename(sourcePath);
-                const categoryParts = pathParts.slice(0, -1).map(part => this.toFriendlyName(part));
+    private findStarters(ADirectory: string): ProjectTemplate[] {
+        const lStarters: ProjectTemplate[] = [];
 
-                templates.push({
-                    name: this.toFriendlyName(templateFolderName),
-                    description: categoryParts.join(' / '),
-                    sourcePath: sourcePath
+        for (const lNode of this.getChildNodes(ADirectory)) {
+            if (lNode.isStarter) {
+                lStarters.push({
+                    name: lNode.name,
+                    sourcePath: lNode.sourcePath
                 });
             } else {
-                templates.push(...this.findTemplates(templateRoot, sourcePath));
+                lStarters.push(...this.findStarters(lNode.sourcePath));
             }
         }
 
-        templates.sort((left, right) => {
-            const leftName = `${left.description}/${left.name}`;
-            const rightName = `${right.description}/${right.name}`;
-            return leftName.localeCompare(rightName);
-        });
-
-        return templates;
+        return lStarters.sort((ALeft, ARight) => ALeft.name.localeCompare(ARight.name));
     }
 
-    private hasDirectTemplateFiles(directoryPath: string): boolean {
-        const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
-        return entries.some(entry => entry.isFile() && entry.name.toLowerCase() !== 'template.json');
+    private isStarterDirectory(ADirectory: string): boolean {
+        return fs.readdirSync(ADirectory, { withFileTypes: true })
+            .some((AEntry) => AEntry.isFile() && !this.isIgnoredTemplateFile(AEntry.name));
     }
 
-    private findCollisions(sourceDir: string, targetDir: string, replacementValues: Record<string, string>): string[] {
-        const collisions: string[] = [];
-        this.walkTemplateFiles(sourceDir, sourceDir, (sourceFile, relativePath) => {
-            const targetPath = path.join(targetDir, this.applyTemplateValues(relativePath, replacementValues));
-            if (fs.existsSync(targetPath)) {
-                collisions.push(targetPath);
+    private findCollisions(ASourceDir: string, ATargetDir: string, AProjectName: string): string[] {
+        const lCollisions: string[] = [];
+
+        this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
+            const lTargetPath = path.join(ATargetDir, this.applyProjectName(ARelativePath, AProjectName));
+
+            if (fs.existsSync(lTargetPath)) {
+                lCollisions.push(lTargetPath);
             }
         });
-        return collisions;
+
+        return lCollisions;
     }
 
-    private copyTemplateDirectory(sourceDir: string, targetDir: string, replacementValues: Record<string, string>): void {
-        this.walkTemplateFiles(sourceDir, sourceDir, (sourceFile, relativePath) => {
-            const targetPath = path.join(targetDir, this.applyTemplateValues(relativePath, replacementValues));
-            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    private copyStarter(ASourceDir: string, ATargetDir: string, AProjectName: string): void {
+        this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
+            const lTargetPath = path.join(ATargetDir, this.applyProjectName(ARelativePath, AProjectName));
+            fs.mkdirSync(path.dirname(lTargetPath), { recursive: true });
 
-            if (this.isTextFile(sourceFile)) {
-                const content = fs.readFileSync(sourceFile, 'utf8');
-                fs.writeFileSync(targetPath, this.applyTemplateValues(content, replacementValues), 'utf8');
-            } else {
-                fs.copyFileSync(sourceFile, targetPath);
+            if (this.isTextFile(ASourceFile)) {
+                const lContent = fs.readFileSync(ASourceFile, 'utf8');
+                fs.writeFileSync(lTargetPath, this.applyProjectName(lContent, AProjectName), 'utf8');
+                return;
             }
+
+            fs.copyFileSync(ASourceFile, lTargetPath);
         });
     }
 
-    private walkTemplateFiles(rootDir: string, currentDir: string, callback: (sourceFile: string, relativePath: string) => void): void {
-        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    private walkFiles(ARootDir: string, ACallback: (ASourceFile: string, ARelativePath: string) => void): void {
+        this.walkFilesFrom(ARootDir, ARootDir, ACallback);
+    }
 
-        for (const entry of entries) {
-            const sourcePath = path.join(currentDir, entry.name);
-            const relativePath = path.relative(rootDir, sourcePath);
+    private walkFilesFrom(ARootDir: string, ACurrentDir: string, ACallback: (ASourceFile: string, ARelativePath: string) => void): void {
+        for (const lEntry of fs.readdirSync(ACurrentDir, { withFileTypes: true })) {
+            const lSourcePath = path.join(ACurrentDir, lEntry.name);
 
-            if (entry.isDirectory()) {
-                this.walkTemplateFiles(rootDir, sourcePath, callback);
-            } else if (entry.isFile() && entry.name.toLowerCase() !== 'template.json') {
-                callback(sourcePath, relativePath);
+            if (lEntry.isDirectory()) {
+                this.walkFilesFrom(ARootDir, lSourcePath, ACallback);
+                continue;
+            }
+
+            if (lEntry.isFile() && !this.isIgnoredTemplateFile(lEntry.name)) {
+                ACallback(lSourcePath, path.relative(ARootDir, lSourcePath));
             }
         }
     }
 
-    private async openFirstSourceFile(sourceDir: string, targetDir: string, replacementValues: Record<string, string>): Promise<void> {
-        const sourceFiles: string[] = [];
+    private async openFirstPascalFile(ASourceDir: string, ATargetDir: string, AProjectName: string): Promise<void> {
+        const lPascalFiles: string[] = [];
 
-        this.walkTemplateFiles(sourceDir, sourceDir, (sourceFile, relativePath) => {
-            if (this.isPascalSourceFile(sourceFile)) {
-                sourceFiles.push(this.applyTemplateValues(relativePath, replacementValues));
+        this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
+            if (this.isPascalSourceFile(ASourceFile)) {
+                lPascalFiles.push(this.applyProjectName(ARelativePath, AProjectName));
             }
         });
 
-        if (sourceFiles.length === 0) {
+        if (lPascalFiles.length === 0) {
             return;
         }
 
-        sourceFiles.sort((left, right) => {
-            if (left.toLowerCase().endsWith('.lpr')) {
-                return -1;
-            }
-            if (right.toLowerCase().endsWith('.lpr')) {
-                return 1;
-            }
-            return left.localeCompare(right);
-        });
+        lPascalFiles.sort((ALeft, ARight) => this.comparePascalFiles(ALeft, ARight));
 
-        const document = await vscode.workspace.openTextDocument(path.join(targetDir, sourceFiles[0]));
-        await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
+        const lDocument = await vscode.workspace.openTextDocument(path.join(ATargetDir, lPascalFiles[0]));
+        await vscode.window.showTextDocument(lDocument, vscode.ViewColumn.One);
     }
 
-    private applyTemplateValues(value: string, replacementValues: Record<string, string>): string {
-        let result = value;
-
-        for (const [name, replacement] of Object.entries(replacementValues)) {
-            result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, 'g'), replacement);
+    private compareNodes(ALeft: StarterNode, ARight: StarterNode): number {
+        if (ALeft.isStarter !== ARight.isStarter) {
+            return ALeft.isStarter ? 1 : -1;
         }
 
-        return result;
+        return ALeft.name.localeCompare(ARight.name);
     }
 
-    private getPlaceHolder(templateRoot: string, currentDir: string): string {
-        const relativePath = path.relative(templateRoot, currentDir);
+    private comparePascalFiles(ALeft: string, ARight: string): number {
+        const lLeftIsProgram = this.isProgramFile(ALeft);
+        const lRightIsProgram = this.isProgramFile(ARight);
 
-        if (!relativePath) {
+        if (lLeftIsProgram !== lRightIsProgram) {
+            return lLeftIsProgram ? -1 : 1;
+        }
+
+        return ALeft.localeCompare(ARight);
+    }
+
+    private isProgramFile(AFilePath: string): boolean {
+        const lExtension = path.extname(AFilePath).toLowerCase();
+        return lExtension === '.lpr' || lExtension === '.dpr';
+    }
+
+    private getPickerTitle(AStarterRoot: string, ACurrentPath: string): string {
+        const lRelativePath = path.relative(AStarterRoot, ACurrentPath);
+
+        if (!lRelativePath) {
             return 'Select a project starter category';
         }
 
-        return `Select from ${relativePath.split(path.sep).map(part => this.toFriendlyName(part)).join(' / ')}`;
+        return `Select from ${this.toFriendlyPath(lRelativePath)}`;
     }
 
-    private toFriendlyName(value: string): string {
-        return value
+    private getRelativeFriendlyPath(AStarterRoot: string, APath: string): string {
+        return this.toFriendlyPath(path.relative(AStarterRoot, APath));
+    }
+
+    private toFriendlyPath(APath: string): string {
+        return APath
+            .split(path.sep)
+            .filter((APart) => APart.length > 0)
+            .map((APart) => this.toFriendlyName(APart))
+            .join(' / ');
+    }
+
+    private toFriendlyName(AValue: string): string {
+        return AValue
             .split(/[-_\s]+/)
-            .filter(part => part.length > 0)
-            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .filter((APart) => APart.length > 0)
+            .map((APart) => APart.charAt(0).toUpperCase() + APart.slice(1))
             .join(' ');
     }
 
-    private isTextFile(filePath: string): boolean {
-        const extension = path.extname(filePath).toLowerCase();
+    private applyProjectName(AValue: string, AProjectName: string): string {
+        return AValue.split(ProjectTemplateManager.ProjectNameToken).join(AProjectName);
+    }
+
+    private isIgnoredTemplateFile(AFileName: string): boolean {
+        return ProjectTemplateManager.IgnoredTemplateFiles.has(AFileName.toLowerCase());
+    }
+
+    private isTextFile(AFilePath: string): boolean {
+        const lExtension = path.extname(AFilePath).toLowerCase();
+
         return [
             '.bat', '.cmd', '.css', '.dpr', '.inc', '.js', '.json', '.lfm', '.lpi', '.lpr',
             '.md', '.pas', '.pp', '.ps1', '.sh', '.sql', '.txt', '.xml', '.yaml', '.yml'
-        ].includes(extension);
+        ].includes(lExtension);
     }
 
-    private isPascalSourceFile(filePath: string): boolean {
-        const extension = path.extname(filePath).toLowerCase();
-        return ['.lpr', '.dpr', '.pas', '.pp'].includes(extension);
+    private isPascalSourceFile(AFilePath: string): boolean {
+        const lExtension = path.extname(AFilePath).toLowerCase();
+        return ['.lpr', '.dpr', '.pas', '.pp'].includes(lExtension);
     }
 }
