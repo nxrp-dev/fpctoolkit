@@ -517,11 +517,8 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 		const storage = DefaultBuildModeStorage.getInstance();
 		const lazarusDefaultId = storage.getDefaultBuildMode();
 		if (lazarusDefaultId) {
-			const { lazarusProvider } = require('../extension');
-			const targetProvider = lazarusProvider || this;
-			
 			// Search in all cached Lazarus project infos
-			for (const projectInfo of targetProvider._projectInfosMap.values()) {
+			for (const projectInfo of this._projectInfosMap.values()) {
 				if (projectInfo.tasks) {
 					for (const task of projectInfo.tasks) {
 						if (task instanceof LazarusBuildModeTask && task.id === lazarusDefaultId) {

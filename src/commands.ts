@@ -466,14 +466,9 @@ export class FpcCommandManager {
         if (node.level === 1 && node.projectTask) {
             await node.projectTask.setAsDefault();
 
-            // Refresh the project explorers to update the UI
-            const { fpcProvider, lazarusProvider } = require('./extension');
-            if (fpcProvider) {
-                fpcProvider.refresh();
-            }
-            if (lazarusProvider) {
-                lazarusProvider.refresh();
-            }
+            // Refresh the unified project explorer to update the UI
+            const { projectProvider } = require('./extension');
+            projectProvider?.refresh();
 
             // Restart the client to apply changes
             await client.restart();
@@ -530,11 +525,9 @@ export class FpcCommandManager {
                 
                 vscode.window.showInformationMessage(`Successfully converted Lazarus build mode "${task.label}" to FPC project task.`);
                 
-                // Refresh the FPC project explorer to show the new task
-                const { fpcProvider } = require('./extension');
-                if (fpcProvider) {
-                    fpcProvider.refresh();
-                }
+                // Refresh the unified project explorer to show the new task
+                const { projectProvider } = require('./extension');
+                projectProvider?.refresh();
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to convert Lazarus build mode: ${error}`);
             }

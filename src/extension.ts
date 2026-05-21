@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { FpcProjectProvider } from './providers/project';
 import { FpcItem } from './providers/fpcItem';
-import { ProjectType } from './providers/projectType';
 import { diagCollection, FpcTaskProvider, LazarusTaskProvider, taskProvider, lazarusTaskProvider, FpcTask, BuildMode } from './providers/task';
 import { FpcCommandManager } from './commands';
 import * as util from './common/util';
@@ -315,13 +314,12 @@ export async function activate(context: vscode.ExtensionContext) {
     commandManager = new FpcCommandManager(workspaceRoot);
     commandManager.registerAll(context);
 
-    // Initialize project providers
-    fpcProvider = new FpcProjectProvider(workspaceRoot, context, ProjectType.FPC);
-    lazarusProvider = new FpcProjectProvider(workspaceRoot, context, ProjectType.Lazarus);
-    projectProvider = fpcProvider; // Default to FPC for legacy references
+    // Initialize one combined project provider. Keep the exported aliases for legacy command paths.
+    projectProvider = new FpcProjectProvider(workspaceRoot, context);
+    fpcProvider = projectProvider;
+    lazarusProvider = projectProvider;
 
-    vscode.window.registerTreeDataProvider("FpcProjectExplorer", fpcProvider);
-    vscode.window.registerTreeDataProvider("LazarusProjectExplorer", lazarusProvider);
+    vscode.window.registerTreeDataProvider("FpcProjectExplorer", projectProvider);
 
     // Register task provider
     context.subscriptions.push(
@@ -344,12 +342,7 @@ export async function activate(context: vscode.ExtensionContext) {
             // Handle Lazarus support configuration changes
             if (event.affectsConfiguration('fpctoolkit.lazarus.enabled')) {
                 // Refresh project provider to show/hide Lazarus projects
-                if (fpcProvider) {
-                    fpcProvider.refresh();
-                }
-                if (lazarusProvider) {
-                    lazarusProvider.refresh();
-                }
+                projectProvider?.refresh();
             }
 
             // Handle MCP configuration changes
