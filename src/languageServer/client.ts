@@ -37,8 +37,6 @@ import * as fs from 'fs-extra';
 import { client, logger } from '../extension';
 import { ClientRequest } from 'http';
 import * as cp from 'child_process';
-import { LazarusBuildModeTask } from '../providers/lazarusBuildModeTask';
-import { LazarusCompiler } from '../providers/lazarusCompiler';
 
 interface InputRegion {
     startLine: number;
@@ -226,32 +224,6 @@ async function getGlobalUnitPaths(ppPath: string, targetOS?: string, targetCPU?:
     });
 }
 
-interface LazbuildNavigationContext {
-    cwd: string;
-    compiler: string;
-    program: string;
-    fpcOptions: string[];
-    rawParams: string[];
-}
-
-function parseQuotedLazbuildValue(line: string, key: string): string | undefined {
-    const match = line.match(new RegExp(`${key}="([^"]*)"`));
-    return match?.[1];
-}
-
-function getTargetOption(options: string[], prefix: '-T' | '-P'): string | undefined {
-    const opt = options.find(value => value.startsWith(prefix));
-    return opt ? opt.substring(2) : undefined;
-}
-
-function isWorkspaceFile(file: string): boolean {
-    const normalizedFile = path.normalize(file).toLowerCase();
-    return vscode.workspace.workspaceFolders?.some(folder => {
-        const workspacePath = path.normalize(folder.uri.fsPath).toLowerCase();
-        return normalizedFile === workspacePath || normalizedFile.startsWith(workspacePath + path.sep);
-    }) || false;
-}
-
 interface myConfiguration extends vscode.WorkspaceConfiguration {
     cwd: string;
 }
@@ -372,11 +344,6 @@ export class TLangClient implements ErrorHandler  {
                         let diag = new vscode.Diagnostic(new vscode.Range(position, position), msg);
                         this.client?.diagnostics?.set(vscode.Uri.file(file), [diag]);
 
-                        if (!isWorkspaceFile(file)) {
-                            logger.appendLine(`Language server reported non-workspace source issue: ${msg}`);
-                            break;
-                        }
-
                         vscode.window.showErrorMessage(msg, 'View Error').then(item => {
                             if (item === 'View Error') {
                                 vscode.workspace.openTextDocument(file).then(doc => {
@@ -470,157 +437,6 @@ export class TLangClient implements ErrorHandler  {
         }
     }
 
-    private async getDefaultLazarusBuildModeTask(): Promise<LazarusBuildModeTask | undefined> {
-        try {
-            const { lazarusProvider } = require('../extension');
-            if (!lazarusProvider) {
-                return undefined;
-            }
-
-            const projectItems = await lazarusProvider.getChildren();
-            let firstBuildMode: LazarusBuildModeTask | undefined;
-
-            for (const projectItem of projectItems) {
-                const tasks = projectItem.project?.tasks || [];
-                for (const task of tasks) {
-                    if (task instanceof LazarusBuildModeTask) {
-                        firstBuildMode = firstBuildMode || task;
-                        if (task.isDefault) {
-                            return task;
-                        }
-                    }
-                }
-            }
-
-            return firstBuildMode;
-        } catch (error) {
-            logger.appendLine(`Failed to inspect Lazarus build modes for navigation context: ${error}`);
-            return undefined;
-        }
-    }
-
-    private parseLazbuildNavigationContext(output: string): LazbuildNavigationContext | undefined {
-        const lines = output.split(/\r?\n/);
-        let cwd = '';
-        let compiler = '';
-        const params = new Map<number, string>();
-
-        for (const line of lines) {
-            if (!cwd) {
-                cwd = parseQuotedLazbuildValue(line, 'WorkingDir')
-                    || parseQuotedLazbuildValue(line, 'Working Directory')
-                    || '';
-            }
-
-            if (!compiler) {
-                compiler = parseQuotedLazbuildValue(line, 'CompilerFilename')
-                    || parseQuotedLazbuildValue(line, 'Executable')
-                    || '';
-            }
-
-            const paramMatch = line.match(/Param\[(\d+)\]="([^"]*)"/);
-            if (paramMatch) {
-                params.set(Number.parseInt(paramMatch[1]), paramMatch[2]);
-            }
-        }
-
-        if (!cwd || !compiler || params.size === 0) {
-            return undefined;
-        }
-
-        const rawParams = Array.from(params.entries())
-            .sort((left, right) => left[0] - right[0])
-            .map(([, value]) => value);
-
-        const programParam = rawParams.slice().reverse().find(param => !param.startsWith('-'));
-        const program = programParam
-            ? (path.isAbsolute(programParam) ? programParam : path.join(cwd, programParam))
-            : '';
-
-        if (!program) {
-            return undefined;
-        }
-
-        const fpcOptions = rawParams.filter(param => {
-            if (!param.startsWith('-')) {
-                return false;
-            }
-            if (param.startsWith('-v') || param.startsWith('-o') || param.startsWith('-FE')) {
-                return false;
-            }
-            return true;
-        });
-
-        return { cwd, compiler, program, fpcOptions, rawParams };
-    }
-
-    private async getLazbuildNavigationContext(envVars: { [key: string]: string | undefined }): Promise<LazbuildNavigationContext | undefined> {
-        const buildModeTask = await this.getDefaultLazarusBuildModeTask();
-        if (!buildModeTask) {
-            return undefined;
-        }
-
-        const hasLazbuild = await LazarusCompiler.checkLazbuildAvailability();
-        if (!hasLazbuild) {
-            logger.appendLine('Lazbuild navigation context skipped: lazbuild not found');
-            return undefined;
-        }
-
-        const lazbuildPath = LazarusCompiler.getLazbuildPath() || 'lazbuild';
-        const projectFile = buildModeTask.project.file;
-        const args = [projectFile];
-
-        if (buildModeTask.buildMode) {
-            args.push(`--build-mode=${buildModeTask.buildMode}`);
-        }
-        if (buildModeTask.targetOS) {
-            args.push(`--os=${buildModeTask.targetOS}`);
-        }
-        if (buildModeTask.targetCPU) {
-            args.push(`--cpu=${buildModeTask.targetCPU}`);
-        }
-
-        args.push('--verbose', '--verbose');
-
-        logger.appendLine(`Resolving Lazarus navigation context with: ${lazbuildPath} ${args.join(' ')}`);
-
-        return new Promise(resolve => {
-            cp.execFile(
-                lazbuildPath,
-                args,
-                {
-                    cwd: path.dirname(projectFile),
-                    env: { ...process.env, ...envVars },
-                    maxBuffer: 1024 * 1024 * 10,
-                    timeout: 120000
-                },
-                (error, stdout, stderr) => {
-                    const output = `${stdout}\n${stderr}`;
-
-                    if (error) {
-                        logger.appendLine(`Lazbuild navigation context command failed: ${error.message}`);
-                    }
-
-                    const context = this.parseLazbuildNavigationContext(output);
-                    if (!context) {
-                        logger.appendLine('Lazbuild navigation context unavailable; falling back to parsed project options');
-                        resolve(undefined);
-                        return;
-                    }
-
-                    logger.appendLine('Lazbuild navigation context resolved');
-                    logger.appendLine(`  cwd: ${context.cwd}`);
-                    logger.appendLine(`  compiler: ${context.compiler}`);
-                    logger.appendLine(`  program: ${context.program}`);
-                    logger.appendLine('  fpcOptions:');
-                    context.fpcOptions.forEach(option => logger.appendLine(`    ${option}`));
-
-                    resolve(context);
-                }
-            );
-        });
-    }
-
     private async _doInit() {
         if (this.client) {
             await this.stopInternal();
@@ -708,40 +524,21 @@ export class TLangClient implements ErrorHandler  {
 
         var initializationOptions = new InitializationOptions();
 
-        const lazbuildContext = await this.getLazbuildNavigationContext(envVars);
-        let globalUnitPathCompiler = envVars['PP'] || 'fpc';
-        let globalUnitPathTargetOS: string | undefined = this.targetOS;
-        let globalUnitPathTargetCPU: string | undefined = this.targetCPU;
-        let globalUnitPathCwd: string | undefined;
-
-        if (lazbuildContext) {
-            initializationOptions.cwd = lazbuildContext.cwd;
-            initializationOptions.program = lazbuildContext.program;
-            initializationOptions.fpcOptions.push(...lazbuildContext.fpcOptions);
-            globalUnitPathCompiler = lazbuildContext.compiler;
-            globalUnitPathTargetOS = getTargetOption(lazbuildContext.fpcOptions, '-T') || this.targetOS;
-            globalUnitPathTargetCPU = getTargetOption(lazbuildContext.fpcOptions, '-P') || this.targetCPU;
-            globalUnitPathCwd = lazbuildContext.cwd;
+        let opt = await this.projProvider.GetDefaultTaskOption();
+        if (opt != undefined) {
+            initializationOptions.updateByCompileOption(opt);
         } else {
-            let opt = await this.projProvider.GetDefaultTaskOption();
-            if (opt != undefined) {
-                initializationOptions.updateByCompileOption(opt);
-            } else {
-                opt = new CompileOption();
-                opt.buildOption!.targetCPU = this.targetCPU;
-                opt.buildOption!.targetOS = this.targetOS;
-            }
-            globalUnitPathTargetOS = opt.buildOption?.targetOS || this.targetOS;
-            globalUnitPathTargetCPU = opt.buildOption?.targetCPU || this.targetCPU;
-            globalUnitPathCwd = opt.cwd;
+            opt = new CompileOption();
+            opt.buildOption!.targetCPU = this.targetCPU;
+            opt.buildOption!.targetOS = this.targetOS;
         }
 
         // Get global unit paths
         const globalUnitPaths = await getGlobalUnitPaths(
-            globalUnitPathCompiler,
-            globalUnitPathTargetOS,
-            globalUnitPathTargetCPU,
-            globalUnitPathCwd
+            envVars['PP'] || 'fpc',
+            opt.buildOption?.targetOS || this.targetOS,
+            opt.buildOption?.targetCPU || this.targetCPU,
+            opt.cwd
         );
         globalUnitPaths.forEach(p => {
             const fu = `-Fu${p}`;
