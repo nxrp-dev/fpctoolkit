@@ -15,9 +15,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
     private closeEmitter = new vscode.EventEmitter<number>();
     onDidClose: vscode.Event<number> = this.closeEmitter.event;
 
-    public event_before_build?: () => void;
-    public event_after_build?: (success: boolean) => void;
-
     protected process?: ChildProcess.ChildProcess;
     protected buffer: string = "";
     protected errbuf: string = "";
@@ -63,11 +60,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
 
         // Create output directories
         this.createOutputDirectories();
-
-        // Execute before build event
-        if (this.event_before_build) {
-            this.event_before_build();
-        }
 
         // Execute the build
         const exitCode = await this.executeBuild();
@@ -330,11 +322,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
             
             this.buildend().then(() => {
                 this.closeEmitter.fire(code || 0);
-                
-                // Execute after build event
-                if (this.event_after_build) {
-                    this.event_after_build(code === 0);
-                }
                 
                 resolve();
             });

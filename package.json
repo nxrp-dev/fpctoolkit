@@ -225,33 +225,6 @@
               }
             }
           },
-          "buildEvent": {
-            "type": "object",
-            "description": "Event to run command.",
-            "properties": {
-              "before_build": {
-                "type": "array",
-                "description": "Run commands before build.",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "after_build_success": {
-                "type": "array",
-                "description": "Run commands after build success.",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "after_build_failure": {
-                "type": "array",
-                "description": "Run commands after build failure.",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          },
           "buildOption": {
             "type": "object",
             "properties": {

@@ -31,12 +31,6 @@ export class BuildOption {
 	includePath?: string[];
 };
 
-export class BuildEvent{
-	before_build?: string[];
-	after_build_success?:string[];
-	after_build_failure?:string[];
-}
-
 export class FpcTaskDefinition implements vscode.TaskDefinition {
 	[name: string]: any;
 	readonly type: string = 'fpc';
@@ -45,7 +39,6 @@ export class FpcTaskDefinition implements vscode.TaskDefinition {
 	cleanExt?: string;
 	inherited?: string;
 	buildOption?: BuildOption;
-	buildEvent?:BuildEvent;
 }
 
 export class LazarusTaskDefinition implements vscode.TaskDefinition {
@@ -291,37 +284,6 @@ export class FpcTask extends vscode.Task {
 				} else {
 					// Use standard FPC terminal for other files
 					terminal = new FpcBuildTaskTerminal(cwd, fpcpath!);
-				}
-				
-				if(taskDefinition.buildEvent){
-					if(taskDefinition.buildEvent.before_build){
-						let commands=taskDefinition.buildEvent.before_build;
-						terminal.event_before_build=()=>{
-							for (const cmd of commands) {
-								let result=ChildProcess.execSync(cmd);
-								terminal.emit(result.toString())
-							}
-						}
-					}
-					if(taskDefinition.buildEvent.after_build_failure || taskDefinition.buildEvent.after_build_success){
-						let commands_failure=taskDefinition.buildEvent.after_build_failure;
-						let commands_success=taskDefinition.buildEvent.after_build_success;
-						terminal.event_after_build=(success)=>{
-							if(success && commands_success){
-								for (const cmd of commands_success) {
-									let result=ChildProcess.execSync(cmd);
-									terminal.emit(result.toString())
-								}
-							}else if(commands_failure)
-								for (const cmd of commands_failure) {
-									let result=ChildProcess.execSync(cmd);
-									terminal.emit(result.toString())
-								}
-							
-							}
-							
-					}
-
 				}
 				
 				// Set arguments based on terminal type

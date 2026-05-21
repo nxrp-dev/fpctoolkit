@@ -37,7 +37,6 @@ For Chinese documentation, see [中文文档](README_CN.md).
   - Customize build tasks with inheritance
   - Support for custom build options (target platform/CPU, output directory, compiler flags, etc.)
   - Cross-platform and multi-architecture compilation (Linux/Windows/macOS, x86_64/i386, etc.)
-  - Pre/post build event support for automation and integration
   - Seamless management of mixed FreePascal and Lazarus projects
 
 #### Code Intelligence & Navigation
@@ -118,13 +117,6 @@ cleanExt | string | File extensions to clean when cleaning the project. Use `*` 
 buildOption | object | Build options
 inherited | string | Inherit from another task
 
-### Build Events
-Field               | Type      | Description                                 |
---------------------|-----------|---------------------------------------------|
-before_build        | string[]  | Commands to run before the build starts      |
-after_build_success | string[]  | Commands to run after a successful build     |
-after_build_failure | string[]  | Commands to run after a failed build         |
-
 ### Build Options
 Field  | Type | Description  |
 -------| ---- |:---------------
@@ -145,7 +137,6 @@ Field  | Type | Description  |
 -------| ---- |:---------------
 cleanExt | string | File extensions to clean when cleaning the project. Use `*` to clear all files. Default: (.o, .ppu, .lfm, .a, .or, .res)
 inherited | string | Inherit from another task
-buildEvent | object | Pre/post build event commands (e.g., `before_build`, `after_build_success`, `after_build_failure`)
 
 #### Example
 ~~~json
