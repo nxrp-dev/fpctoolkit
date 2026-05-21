@@ -101,19 +101,6 @@ export class FpcTaskProvider implements vscode.TaskProvider {
 		this.defineMap.set(name, definition!);
 		let task = new FpcTask(this.cwd ? this.cwd : this.workspaceRoot, name, file!, definition!);
 
-
-		// task.presentationOptions.clear = true;
-		// task.presentationOptions.echo = true;
-		// task.presentationOptions.focus = false;
-		// task.presentationOptions.showReuseMessage = false;
-		// task.presentationOptions.reveal = vscode.TaskRevealKind.Always;
-		// task.presentationOptions.panel = vscode.TaskPanelKind.Shared;
-		//  task.presentationOptions.revealProblems='onProblem';
-		//(task.presentationOptions as any)["revealProblems"]="onProblem";
-
-		//task.problemMatchers.push('$fpc');
-
-
 		return task;
 	}
 
@@ -184,13 +171,7 @@ export class FpcTask extends vscode.Task {
 			vscode.TaskScope.Workspace,
 			`${name}`,
 			FpcTaskProvider.FpcTaskType,
-			//new vscode.ShellExecution(`${fpcpath} ${taskDefinition.file} ${buildOptionString}`)
 			new FpcCustomExecution(async (): Promise<vscode.Pseudoterminal> => {
-				// 	// When the task is executed, this callback will run. Here, we setup for running the task.
-				// let terminal = new  FpcBuildTaskTerminal(workspaceRoot, fpcpath!);
-				//terminal.args =  `${taskDefinition?.file} ${buildOptionString}`.split(' ');
-
-				//taskProvider.GetTaskDefinition()
 				let buildOptionString: string = '';
 				let realDefinition=taskProvider.GetTaskDefinition(name);
 				if (realDefinition === undefined) {
@@ -214,27 +195,23 @@ export class FpcTask extends vscode.Task {
 				}
 				buildOptionString += '-vq '; //show message numbers 
 
-				let fpcpath = process.env['PP'];//  configuration.get<string>('env.PP');
+				let fpcpath = process.env['PP'];
 				if (fpcpath === '') {
 					fpcpath = 'fpc';
 				}
 
-				// Determine if this is a Lazarus project
 				const isLazarusProject = taskDefinition?.isLazarusProject;
 				
 				let terminal: FpcBuildTaskTerminal | LazarusBuildTerminal;
 				
 				if (isLazarusProject) {
-					// Use Lazarus build terminal for .lpi/.lpr files
 					const buildMode = (taskDefinition as any).buildMode || name;
 					terminal = new LazarusBuildTerminal(cwd, fpcpath!, taskDefinition?.lazarusProjectFile, buildMode);
 					(terminal as LazarusBuildTerminal).forceRebuild = this._BuildMode === BuildMode.rebuild;
 				} else {
-					// Use standard FPC terminal for other files
 					terminal = new FpcBuildTaskTerminal(cwd, fpcpath!);
 				}
 				
-				// Set arguments based on terminal type
 				const mainFileForCmd = taskDefinition?.file;
 				if (terminal instanceof LazarusBuildTerminal) {
 					// For Lazarus projects, the terminal handles compilation strategy internally
@@ -250,7 +227,6 @@ export class FpcTask extends vscode.Task {
 
 			})
 		);
-		//this.TaskBuildOptionString = buildOptionString;
 	}
 
 
@@ -331,12 +307,10 @@ class FpcBuildTaskTerminal extends BaseBuildTerminal {
 			line = line.trim();
 			if (!line) { return; }
 
-			// Try to parse FPC-style error or "Compiling" context
 			if (this.parseFpcStyleError(line)) {
 				return;
 			}
 
-			// Handle other error/warning lines that don't match the standard format
 			if (line.startsWith('Error:') || line.startsWith('Fatal:')) {
 				this.emit(TerminalEscape.apply({ msg: line, style: [TE_Style.Red] }));
 			} else if (line.startsWith('Warning:')) {

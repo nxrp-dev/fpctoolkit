@@ -2,10 +2,7 @@ import * as vscode from 'vscode';
 import { CompileOption } from '../languageServer/options';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
-/**
- * FPC Task implementation of IProjectTask
- * Represents a task defined in tasks.json
- */
+
 export class FpcTask implements IProjectTask {
     isInLpi: boolean = false;
     constructor(
@@ -15,24 +12,13 @@ export class FpcTask implements IProjectTask {
         private taskDefinition: any
     ) {}
 
-    /**
-     * Get compile options for this FPC task
-     * @param workspaceRoot Workspace root path
-     * @returns CompileOption object
-     */
     getCompileOption(workspaceRoot: string): CompileOption {
         return new CompileOption(this.taskDefinition, workspaceRoot);
     }
 
-    /**
-     * Get tree item for display in TreeDataProvider
-     * @returns TreeItem for this FPC task
-     */
     getTreeItem(): vscode.TreeItem {
-        // Create display label based on task properties
         let displayLabel = this.label;
 
-        // Add platform info to label if available
         if (this.taskDefinition.targetOS || this.taskDefinition.targetCPU) {
             displayLabel += '-';
             if (this.taskDefinition.targetOS) {
@@ -43,12 +29,10 @@ export class FpcTask implements IProjectTask {
             }
         }
 
-        // Create tree item
         const item = new vscode.TreeItem(displayLabel, vscode.TreeItemCollapsibleState.None);
         item.contextValue = 'fpcbuild';
         item.tooltip = `${displayLabel} (${this.project.file})`;
 
-        // Add description for default task
         if (this.isDefault) {
             item.description = 'default';
         }
@@ -56,17 +40,12 @@ export class FpcTask implements IProjectTask {
         return item;
     }
 
-    /**
-     * Get vscode.Task object for this task
-     * @returns vscode.Task object
-     */
     async getTask(): Promise<vscode.Task> {
         // If this is an auto-generated task (label is [default]), ensure it's saved to tasks.json
         if (this.label === '[default]' && this.project.file) {
             await this.ensureTaskInTasksJson();
         }
         
-        // Get task from taskProvider
         const { taskProvider } = require('./task');
         return taskProvider.getTask(
             this.label,
@@ -75,10 +54,6 @@ export class FpcTask implements IProjectTask {
         );
     }
 
-    /**
-     * Ensure this task configuration exists in tasks.json
-     * If not, create a default configuration for it
-     */
     private async ensureTaskInTasksJson(): Promise<void> {
         try {
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -89,14 +64,12 @@ export class FpcTask implements IProjectTask {
             const config = vscode.workspace.getConfiguration('tasks', vscode.Uri.file(workspaceRoot));
             const tasks = config.get<any[]>('tasks') || [];
 
-            // Check if a task for this file already exists
             const path = require('path');
             const existingTask = tasks.find(task => 
                 task.type === 'fpc' && path.basename(task.file) === path.basename(this.project.file)
             );
 
             if (!existingTask) {
-                // Create a new task definition
                 const relFile = path.isAbsolute(this.project.file) ? path.relative(workspaceRoot, this.project.file) : this.project.file;
                 const fileName = path.basename(this.project.file, path.extname(this.project.file));
                 const newTask = {
@@ -112,14 +85,11 @@ export class FpcTask implements IProjectTask {
                     }
                 };
 
-                // Add to tasks array
                 tasks.push(newTask);
 
-                // Update the configuration and wait for it to complete
                 await config.update('tasks', tasks, vscode.ConfigurationTarget.WorkspaceFolder);
                 console.log(`Auto-generated FPC task for ${this.project.file}`);
                 
-                // Update internal task definition
                 this.taskDefinition = newTask;
                 this.label = fileName;
             }
@@ -128,10 +98,6 @@ export class FpcTask implements IProjectTask {
         }
     }
 
-    /**
-     * Set this task as the default task
-     * Updates the task.json file to mark this task as default
-     */
     async setAsDefault(): Promise<void> {
         // If this is an auto-generated task (label is [default]), ensure it's saved to tasks.json
         if (this.label === '[default]' && this.project.file) {
@@ -140,18 +106,15 @@ export class FpcTask implements IProjectTask {
 
         this.isDefault = true;
         
-        // Clear any Lazarus build mode defaults
         const storage = DefaultBuildModeStorage.getInstance();
         storage.setDefaultBuildMode("");
         
-        // Update the task definition if available
         if (this.taskDefinition) {
             if (!this.taskDefinition.group) {
                 this.taskDefinition.group = {};
             }
             this.taskDefinition.group.isDefault = true;
 
-            // Update tasks.json file
             try {
                 const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
                 if (workspaceRoot) {
@@ -160,11 +123,9 @@ export class FpcTask implements IProjectTask {
 
                     const path = require('path');
                     let tasksUpdated = false;
-                    // Find and update the task in the tasks array
                     for (const task of tasks) {
                         if (task.type === 'fpc') {
                             if (task.label === this.label && path.basename(task.file) === path.basename(this.project.file)) {
-                                // Set this task as default
                                 if (!task.group) {
                                     task.group = { kind: 'build', isDefault: true };
                                 } else {
@@ -172,7 +133,6 @@ export class FpcTask implements IProjectTask {
                                 }
                                 tasksUpdated = true;
                             } else {
-                                // Clear default flag from other tasks
                                 if (task.group && task.group.isDefault) {
                                     task.group.isDefault = undefined;
                                     tasksUpdated = true;
@@ -181,7 +141,6 @@ export class FpcTask implements IProjectTask {
                         }
                     }
 
-                    // Update the configuration
                     if (tasksUpdated) {
                         await config.update(
                             "tasks",
@@ -198,12 +157,7 @@ export class FpcTask implements IProjectTask {
     }
 }
 
-/**
- * FPC Task Project implementation of IProjectIntf
- * Represents a project defined in tasks.json
- */
 export class FpcTaskProject implements IProjectIntf {
-    // Tasks associated with this project
     public tasks: IProjectTask[] = [];
 
     constructor(
@@ -212,10 +166,8 @@ export class FpcTaskProject implements IProjectIntf {
         isDefault: boolean,
         taskDefinitions: any[] | any = []
     ) {
-        // Convert single task definition to array if needed
         const taskDefs = Array.isArray(taskDefinitions) ? taskDefinitions : (taskDefinitions ? [taskDefinitions] : []);
         
-        // Create task objects for each task definition
         for (const taskDef of taskDefs) {
             if (taskDef) {
                 const isTaskDefault = taskDef.group?.isDefault || false;
@@ -228,7 +180,6 @@ export class FpcTaskProject implements IProjectIntf {
             }
         }
         
-        // If no tasks were created but we have a file, create a default task
         if (this.tasks.length === 0 && this.file) {
             const defaultTask = new FpcTask(
                 "[default]",

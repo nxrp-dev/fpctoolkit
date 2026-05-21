@@ -70,9 +70,7 @@ export class LazarusUtils {
         's390x': 's390x'
     };
 
-    // Cached system info
     private static cachedSystemInfo: {
-        fpcVersion?: string;
         lazarusDir?: string;
     } = {};
 
@@ -357,34 +355,28 @@ export class LazarusUtils {
     }
     /**
      * Get system defaults for target OS and CPU
-     * @returns Object containing default target OS, CPU, Lazarus directory and FPC version
+     * @returns Object containing default target OS, CPU, and Lazarus directory
      */
     public static getSystemDefaults(): {
         targetOS: string,
         targetCPU: string,
-        lazarusDir?: string,
-        fpcVersion?: string
+        lazarusDir?: string
     } {
         this.detectSystemInfo();
         return {
             targetOS: this.getDefaultTargetOS(),
             targetCPU: this.getDefaultTargetCPU(),
-            lazarusDir: this.cachedSystemInfo.lazarusDir,
-            fpcVersion: this.cachedSystemInfo.fpcVersion
+            lazarusDir: this.cachedSystemInfo.lazarusDir
         };
     }
 
-    /**
-     * Detect system information (Lazarus directory, FPC version)
-     */
     private static detectSystemInfo(): void {
-        if (this.cachedSystemInfo.lazarusDir && this.cachedSystemInfo.fpcVersion) {
+        if (this.cachedSystemInfo.lazarusDir) {
             return;
         }
 
         const plat = os.platform();
         let lazDir: string | undefined;
-        let fpcVer: string | undefined;
 
         // Try to read from environmentoptions.xml
         let configPath: string | undefined;
@@ -401,9 +393,6 @@ export class LazarusUtils {
                 const content = fs.readFileSync(configPath, 'utf8');
                 const lazDirMatch = content.match(/<LazarusDirectory[^>]*Value=["']([^"']+)["']/i);
                 if (lazDirMatch) lazDir = lazDirMatch[1];
-
-                const fpcSrcMatch = content.match(/<FPCSourceDirectory[^>]*Value=["']([^"']+)["']/i);
-                if (fpcSrcMatch) fpcVer = fpcSrcMatch[1];
             } catch (err) {}
         }
 
@@ -412,13 +401,9 @@ export class LazarusUtils {
             if (!lazDir && fs.existsSync('/Applications/Lazarus')) {
                 lazDir = '/Applications/Lazarus';
             }
-            if (!fpcVer && fs.existsSync('/usr/local/share/fpcsrc')) {
-                fpcVer = '/usr/local/share/fpcsrc';
-            }
         }
 
         this.cachedSystemInfo.lazarusDir = lazDir;
-        this.cachedSystemInfo.fpcVersion = fpcVer;
     }
 
     /**

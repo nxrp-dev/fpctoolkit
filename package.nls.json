@@ -15,14 +15,10 @@
     "task.buildOption.outputFile": "Target file name.(-o)",
     "task.buildOption.syntaxMode": "Syntax mode (-M,{$mode})",
     "task.buildOption.optimizationLevel": "Code optimization level (-O)",
-    "task.buildOption.customOptions": "Custom compilation options.",
     "task.buildOption.forceRebuild": "Force update all unit files and compile.(-B)",
     "task.buildOption.msgIgnore":"Specify which messages should not be displayed during compilation. Multiple error,warn,note numbers can be specified.(-vmxxx)",          
-    "config.searchPath": "Unit file search path.(-Fu)",
-    "config.libPath": "Library search path.(-Fl)",
-    "config.customOptions": "Custom options.",
     "config.env.PP": "Compiler location (i.e. `/usr/bin/fpc`, `/usr/bin/ppc386`)",
-    "config.env.FPCDIR": "Free Pascal source code location e.g.:`/usr/local/share/fpcsrc`",
+    "config.languageServer.FPCSourceDirectory": "Free Pascal source directory used by the language server for RTL/FCL navigation. Example: `C:\\lazarus\\fpc\\3.2.2\\source` or `/usr/local/share/fpcsrc`.",
     "config.env.LAZARUSDIR": "Lazarus source code location e.g.:`/usr/local/share/lazsrc`",
     "config.env.FPCTARGET": "Target operating system e.g.: (`win32`,`win64`, `linux`, `darwin`)",
     "config.env.FPCTARGETCPU": "Target CPU family e.g.: `x86_64`",
@@ -50,11 +46,9 @@
     "config.format.enabled": "Enable source code formatting (using Jedi).",
     "config.format.cfgpath": "Format configuration file path(jcfsettings.cfg).",
     "config.debug.autoBuild": "Automatically compile default project before debugging when files have changes",
-    "config.lazarus.enabled": "Enable Lazarus project support for .lpi files and Lazarus-specific features",
     "project.newfromtemplate": "New Project from Template",
     "project.inittemplatedir": "Initialize Template Directory to Workspace",
     "project.inittemplatedirtouser": "Initialize Template Directory to User Space",
     "project.opentemplatedir": "Open Template Directory",
-    "config.project.templateDirectories": "Custom directories to search for project templates. Can be absolute paths or relative to workspace root.",
-    "config.lazarus.preferLazbuild": "Prefer lazbuild over fpc for compiling Lazarus projects when available"
+    "config.project.templateDirectories": "Custom directories to search for project templates. Can be absolute paths or relative to workspace root."
 }

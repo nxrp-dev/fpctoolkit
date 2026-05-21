@@ -170,10 +170,7 @@ end.`,
                         "revealProblems": "onProblem"
                     },
                     "buildOption": {
-                        "unitOutputDir": "./out",
-                        "customOptions": [
-                            "-dDEBUG"
-                        ]
+                        "unitOutputDir": "./out"
                     }
                 }
             ]

@@ -73,8 +73,7 @@ templates/
         "revealProblems": "onProblem"
       },
       "buildOption": {
-        "unitOutputDir": "./out",
-        "customOptions": ["-dDEBUG", "-gw2"]
+        "unitOutputDir": "./out"
       }
     }
   ]

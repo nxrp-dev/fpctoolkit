@@ -15,14 +15,10 @@
   "task.buildOption.outputFile": "目标文件名称.(-o)",
   "task.buildOption.syntaxMode": "语法模式 (-M,{$mode})",
   "task.buildOption.optimizationLevel": "代码优化级别 (-O)",
-  "task.buildOption.customOptions": "自定义编译选项.",
   "task.buildOption.forceRebuild": "强制更新所有单元文件并编译.(-B)",
   "task.buildOption.msgIgnore": "指定编译时哪些消息不需要显示.可以指定多个error,warn,note编号。(-vmxxx)",
-  "config.searchPath": "单元文件搜索路径.(-Fu)",
-  "config.libPath": "库搜索路径.(-Fl)",
-  "config.customOptions": "自定义选项.",
   "config.env.PP": "编译器位置 (i.e. `/usr/bin/fpc`, `/usr/bin/ppc386`)",
-  "config.env.FPCDIR": "Free Pascal 源代码位置 如:`/usr/local/share/fpcsrc`",
+  "config.languageServer.FPCSourceDirectory": "语言服务器用于 RTL/FCL 导航的 Free Pascal 源代码目录。例如：`C:\\lazarus\\fpc\\3.2.2\\source` 或 `/usr/local/share/fpcsrc`。",
   "config.env.LAZARUSDIR": "Lazarus 源代码位置 如:`/usr/local/share/lazsrc`",
   "config.env.FPCTARGET": "目标操作系统 如: (`win32`,`win64`, `linux`, `darwin`)",
   "config.env.FPCTARGETCPU": "目标CPU族 如: `x86_64`",
@@ -49,11 +45,9 @@
   "config.format.enabled": "启用源码格式化(使用Jedi).",
   "config.format.cfgpath": "格式化配置文件路径(jcfsettings.cfg).",
   "config.debug.autoBuild": "当文件有更改时，在调试前自动编译默认项目",
-  "config.lazarus.enabled": "启用Lazarus项目支持，包括.lpi文件和Lazarus特定功能",
   "project.newfromtemplate": "从模板创建新项目",
   "project.inittemplatedir": "初始化模板目录到工作区",
   "project.inittemplatedirtouser": "初始化模板目录到用户空间",
   "project.opentemplatedir": "打开模板目录",
-  "config.project.templateDirectories": "搜索项目模板的自定义目录。可以是绝对路径或相对于工作区根目录的路径。",
-  "config.lazarus.preferLazbuild": "当lazbuild可用时，优先使用lazbuild而不是fpc来编译Lazarus项目"
+  "config.project.templateDirectories": "搜索项目模板的自定义目录。可以是绝对路径或相对于工作区根目录的路径。"
 }

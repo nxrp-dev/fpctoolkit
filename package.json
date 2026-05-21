@@ -177,42 +177,6 @@
             "type": "string",
             "description": "%task.cwd%"
           },
-          "windows": {
-            "type": "object",
-            "properties": {
-              "customOptions": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "%task.buildOption.customOptions%"
-              }
-            }
-          },
-          "linux": {
-            "type": "object",
-            "properties": {
-              "customOptions": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "%task.buildOption.customOptions%"
-              }
-            }
-          },
-          "osx": {
-            "type": "object",
-            "properties": {
-              "customOptions": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "%task.buildOption.customOptions%"
-              }
-            }
-          },
           "buildOption": {
             "type": "object",
             "properties": {
@@ -290,13 +254,6 @@
                   "type": "number"
                 },
                 "description": "%task.buildOption.msgIgnore%"
-              },
-              "customOptions": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "%task.buildOption.customOptions%"
               }
             }
           }
@@ -394,34 +351,9 @@
       {
         "title": "Nexus Pascal",
         "properties": {
-          "nexusPascal.searchPath": {
-            "type": "array",
-            "description": "%config.searchPath%",
-            "items": {
-              "type": "string"
-            }
-          },
-          "nexusPascal.libPath": {
-            "type": "array",
-            "description": "%config.libPath%",
-            "items": {
-              "type": "string"
-            }
-          },
-          "nexusPascal.customOptions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "%config.customOptions%"
-          },
           "nexusPascal.env.PP": {
             "type": "string",
             "markdownDescription": "%config.env.PP%"
-          },
-          "nexusPascal.env.FPCDIR": {
-            "type": "string",
-            "markdownDescription": "%config.env.FPCDIR%"
           },
           "nexusPascal.env.LAZARUSDIR": {
             "type": "string",
@@ -455,6 +387,10 @@
             "type": "string",
             "description": "%config.pasls.path%"
           },
+          "nexusPascal.languageServer.FPCSourceDirectory": {
+            "type": "string",
+            "markdownDescription": "%config.languageServer.FPCSourceDirectory%"
+          },
           "nexusPascal.format.enabled": {
             "type": "boolean",
             "default": "true",
@@ -469,11 +405,6 @@
             "default": true,
             "description": "%config.debug.autoBuild%"
           },
-          "nexusPascal.lazarus.enabled": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.lazarus.enabled%"
-          },
           "nexusPascal.project.templateDirectories": {
             "type": "array",
             "items": {
@@ -481,11 +412,6 @@
             },
             "default": [],
             "description": "%config.project.templateDirectories%"
-          },
-          "nexusPascal.lazarus.preferLazbuild": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.lazarus.preferLazbuild%"
           }
         }
       },

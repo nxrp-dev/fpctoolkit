@@ -76,9 +76,7 @@ export class LazarusVariableSubstitution {
             }
         }
         
-        // Use enhanced system detection
         this.variables.set('LazarusDir', systemDefaults.lazarusDir || '');
-        this.variables.set('FPCVer', systemDefaults.fpcVersion || '');
         
         // Application directory (usually workspace root in VS Code extension)
         this.variables.set('AppDir', projectDir);

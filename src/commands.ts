@@ -62,16 +62,12 @@ export class FpcCommandManager {
                 return;
             }
             let label: string | undefined;
-            let customOption = '-dDEBUG';
-            let isDebug = false;
             switch (inp) {
                 case 'debug':
-                    isDebug = true;
                     label = 'debug';
                     break;
                 case 'release':
                     label = 'release';
-                    customOption = '-dRELEASE';
                     break;
 
                 default:
@@ -121,15 +117,9 @@ export class FpcCommandManager {
                 "type": "fpc",
                 "buildOption": {
                     "syntaxMode": "ObjFPC",
-                    "unitOutputDir": "./out",
-                    "customOptions": [
-                        customOption
-                    ]
+                    "unitOutputDir": "./out"
                 }
             };
-            if (isDebug) {
-                v.buildOption.customOptions = [customOption, '-gw2'];
-            }
 
             tasks.push(v);
             config.update(

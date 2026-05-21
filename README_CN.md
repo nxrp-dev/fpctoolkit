@@ -118,7 +118,6 @@ buildOption|object|build 选项
 -------| ---- |:---------------
 targetOS  | string | 目标操作系统 (-T).  eg. `linux` `win64`
 targetCPU |string| 目标CPU族 (-P). eg. `x86_64` `i386`
-customOptions|string []| 自定义编译选项.
 libPath|string[]|库搜索路径.(-Fl)
 outputFile| string| 目标文件名称.(-o)
 unitOutputDir| string|单元文件输出路径.(-FU)
@@ -138,11 +137,7 @@ msgIgnore|number[]|指定编译时哪些消息不需要显示.(-vmxxx)
 			"file": "main.lpr",
 			"type": "fpc",
 			"buildOption": {
-				"unitOutputDir": "./out",
-				"customOptions": [
-					"-dDEBUG",
-					"-gw2"
-				]
+				"unitOutputDir": "./out"
 			}
 		}
 	]

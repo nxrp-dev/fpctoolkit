@@ -183,7 +183,7 @@ export class LazarusCompiler {
         fpcArgs: string[],
         workspaceRoot: string
     ): CompilerResult {
-        console.log(`Using fpc fallback: ${fpcPath} with args: ${fpcArgs.join(' ')}`);
+        console.log(`Using fpc: ${fpcPath} with args: ${fpcArgs.join(' ')}`);
 
         return {
             success: true,
@@ -208,22 +208,12 @@ export class LazarusCompiler {
         const isLazarusProject = projectFile.toLowerCase().endsWith('.lpi') || projectFile.toLowerCase().endsWith('.lpk');
 
         if (isLazarusProject) {
-            // Check user preference for lazbuild
-            const preferLazbuild = vscode.workspace.getConfiguration('nexusPascal.lazarus').get<boolean>('preferLazbuild', true);
-
-            if (preferLazbuild) {
-                // Try lazbuild 
-                const hasLazbuild = await this.checkLazbuildAvailability();
-                if (hasLazbuild) {
-                    return this.buildWithLazbuild(projectFile, buildMode, workspaceRoot, forceRebuild);
-                } else {
-                    // No fallback for Lazarus projects if lazbuild is not found
-                    throw new Error('lazbuild not found. Please ensure Lazarus is installed and lazbuild is in your PATH, or set the Lazarus directory in settings.');
-                }
-            } else {
-                 // Even if not preferred, if it's a Lazarus project we should warn that FPC might fail
-                 return this.buildWithFpc(fpcPath, fpcArgs, workspaceRoot);
+            const hasLazbuild = await this.checkLazbuildAvailability();
+            if (hasLazbuild) {
+                return this.buildWithLazbuild(projectFile, buildMode, workspaceRoot, forceRebuild);
             }
+
+            throw new Error('lazbuild not found. Please ensure Lazarus is installed and lazbuild is in your PATH, or set the Lazarus directory in settings.');
         }
 
         // Standard FPC build (not a Lazarus project)

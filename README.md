@@ -32,7 +32,7 @@ For Chinese documentation, see [中文文档](README_CN.md).
   - Custom template support with variable substitution (date, time, username, project name)
   - Multi-file templates with pre-configured build tasks
   - Template initialization and management commands
-- **Lazarus LPI Project Support**: Automatically detects and parses `.lpi` project files, extracts all build modes, and supports multi-mode build management with intelligent compiler selection (lazbuild preferred, fpc fallback)
+- **Lazarus LPI Project Support**: Automatically detects and parses `.lpi` project files, extracts all build modes, and builds Lazarus projects with lazbuild
 - **Advanced Task System**:
   - Customize build tasks
   - Support for custom build options (target platform/CPU, output directory, compiler flags, etc.)
@@ -120,7 +120,6 @@ Field  | Type | Description  |
 -------| ---- |:---------------
 targetOS  | string | Target OS (-T), e.g. `linux`, `win64`
 targetCPU | string | Target CPU family (-P), e.g. `x86_64`, `i386`
-customOptions | string[] | Any compile options for FPC
 libPath | string[] | Library search path (-Fl)
 outputFile | string | Target file name (-o)
 unitOutputDir | string | Unit output directory (-FU)
@@ -144,11 +143,7 @@ Field  | Type | Description  |
       "file": "main.lpr",
       "type": "fpc",
       "buildOption": {
-        "unitOutputDir": "./out",
-        "customOptions": [
-          "-dDEBUG",
-          "-gw2"
-        ]
+        "unitOutputDir": "./out"
       }
     }
   ]

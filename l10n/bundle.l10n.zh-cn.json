@@ -1,4 +1,4 @@
 {
-    "FPCDIR is not set or invalid. Please set the FPCDIR path in settings (fpctoolkit.env)": "FPCDIR 没有设置或无效，请在设置中设置 FPCDIR 路径 (fpctoolkit.env)",
+    "FPC source directory is not set or invalid. Please set the Free Pascal source directory used by the language server.": "FPC 源代码目录未设置或无效。请设置语言服务器使用的 Free Pascal 源代码目录。",
     "Open Settings": "打开设置"
 }

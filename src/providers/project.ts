@@ -237,24 +237,16 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 						this.collectFpcProject(absolutePath, itemMaps, workspaceFolder, relativePath);
 					}
 				}
-				// Handle .lpi files (Lazarus projects) - only if Lazarus support is enabled
+				// Handle .lpi files (Lazarus projects)
 				else if (absolutePath.toLowerCase().endsWith('.lpi')) {
 					if (this.projectTypeFilter === undefined || this.projectTypeFilter === ProjectType.Lazarus) {
-						const config = vscode.workspace.getConfiguration('nexusPascal');
-						const lazarusEnabled = config.get<boolean>('lazarus.enabled', true);
-						if (lazarusEnabled) {
-							this.collectLazarusProject(absolutePath, itemMaps, workspaceFolder, relativePath);
-						}
+						this.collectLazarusProject(absolutePath, itemMaps, workspaceFolder, relativePath);
 					}
 				}
 				// Handle .lpk files (Lazarus packages)
 				else if (absolutePath.toLowerCase().endsWith('.lpk')) {
 					if (this.projectTypeFilter === undefined || this.projectTypeFilter === ProjectType.Lazarus) {
-						const config = vscode.workspace.getConfiguration('nexusPascal');
-						const lazarusEnabled = config.get<boolean>('lazarus.enabled', true);
-						if (lazarusEnabled) {
-							this.collectLazarusProject(absolutePath, itemMaps, workspaceFolder, relativePath);
-						}
+						this.collectLazarusProject(absolutePath, itemMaps, workspaceFolder, relativePath);
 					}
 				}
 			}

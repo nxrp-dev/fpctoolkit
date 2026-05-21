@@ -327,17 +327,6 @@ export async function activate(context: vscode.ExtensionContext) {
     // Register debug configuration
     registerDebugConfiguration(context);
 
-    // Listen for configuration changes to handle dynamic enabling/disabling of features
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration(async (event) => {
-            // Handle Lazarus support configuration changes
-            if (event.affectsConfiguration('nexusPascal.lazarus.enabled')) {
-                // Refresh project provider to show/hide Lazarus projects
-                projectProvider?.refresh();
-            }
-        })
-    );
-
     logger.appendLine('Core components initialized, extension activated');
 
     // ========================================

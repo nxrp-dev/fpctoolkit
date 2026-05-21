@@ -12,16 +12,13 @@ export class CompileOption {
     public cwd: string = "";
     public label: string = '';
     public file: string = '';
-    public windows?: { customOptions?: string[] };
-    public linux?: { customOptions?: string[] };
-    public darwin?: { customOptions?: string[] };
-    
     public presentation = {
         showReuseMessage: false,
         clear: true,
         revealProblems: "onProblem"
     };
     public buildOption?:BuildOption;
+    private allowBuildOptionCustomOptions = false;
 
 
     constructor(
@@ -33,8 +30,8 @@ export class CompileOption {
         if (taskDefinition) {
             this.file = taskDefinition.file??"";
             this.label = taskDefinition.file??"untitled";
-            this.windows = taskDefinition.windows;
             this.buildOption = taskDefinition.buildOption;
+            this.allowBuildOptionCustomOptions = taskDefinition.isLazarusBuildMode === true;
             if(workspaceRoot){
                 if (taskDefinition.cwd) {
                     let rawCwd = taskDefinition.cwd;
@@ -55,10 +52,7 @@ export class CompileOption {
 
         } else {
             this.buildOption = {
-                unitOutputDir: "./out",
-                customOptions: [
-                    "-dDEBUG"
-                ]
+                unitOutputDir: "./out"
             };
         }
 
@@ -66,26 +60,7 @@ export class CompileOption {
     }
 
     toOptionString() {
-        let fpccfg = configuration;
-        let globalOption = {
-            customOptions: fpccfg.get<string[]>('customOptions'),
-            libPath: fpccfg.get<string[]>('libPath'),
-            searchPath: fpccfg.get<string[]>('searchPath'),
-        };
-        let plat = process.platform;
-        var plat_options:string[]|undefined;
-        if (plat == 'win32') {
-            plat_options=this.windows?.customOptions;
-        } else if (plat == 'linux') {
-            plat_options=this.linux?.customOptions;
-        } else if (plat == 'darwin') {
-            plat_options=this.darwin?.customOptions;
-        }
-
         let s: string = '';
-        plat_options?.forEach((e) => {
-            s += e + " ";
-        });
         if (this.buildOption?.targetOS) {
             s += "-T" + this.buildOption!.targetOS + " ";
         }
@@ -101,14 +76,6 @@ export class CompileOption {
         if (this.buildOption?.outputFile) {
             s += "-o" + this.buildOption!.outputFile + " ";
         }
-
-        globalOption?.searchPath?.forEach((e) => {
-            s += "-Fu" + e + " ";
-        });
-        globalOption?.libPath?.forEach((e) => {
-            s += "-Fl" + e + " ";
-        });
-
 
         this.buildOption?.searchPath?.forEach((e) => {
             s += "-Fu" + e + " ";
@@ -135,12 +102,11 @@ export class CompileOption {
         if (this.buildOption?.syntaxMode) {
             s += "-M" + this.buildOption!.syntaxMode + " ";
         }
-        globalOption?.customOptions?.forEach((e) => {
-            s += e + " ";
-        });
-        this.buildOption?.customOptions?.forEach((e) => {
-            s += e + " ";
-        });
+        if (this.allowBuildOptionCustomOptions) {
+            this.buildOption?.customOptions?.forEach((e) => {
+                s += e + " ";
+            });
+        }
        
 
         return s;

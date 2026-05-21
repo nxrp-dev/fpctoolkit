@@ -6,7 +6,6 @@ The Nexus Pascal extension provides various configuration options that can be se
 Setting | Type | Description |
 --------|------|-------------|
 `nexusPascal.env.PP` | string | Compiler location (e.g., `/usr/bin/fpc`, `/usr/bin/ppc386`)
-`nexusPascal.env.FPCDIR` | string | Free Pascal source code location (e.g., `/usr/local/share/fpcsrc`)
 `nexusPascal.env.LAZARUSDIR` | string | Lazarus source code location (e.g., `/usr/local/share/lazsrc`)
 `nexusPascal.env.FPCTARGET` | string | Target operating system (e.g., `win32`, `win64`, `linux`, `darwin`)
 `nexusPascal.env.FPCTARGETCPU` | string | Target CPU family (e.g., `x86_64`)
@@ -15,6 +14,7 @@ Setting | Type | Description |
 Setting | Type | Description |
 --------|------|-------------|
 `nexusPascal.pasls.path` | string | Pascal Language Server (pasls) file location
+`nexusPascal.languageServer.FPCSourceDirectory` | string | Free Pascal source directory used by the language server for RTL/FCL navigation (e.g., `C:\lazarus\fpc\3.2.2\source`, `/usr/local/share/fpcsrc`)
 `nexusPascal.lsp.trace.server` | string | Trace communication between VS Code and pascal language server
 `nexusPascal.lsp.initializationOptions.program` | string | Main program file. If not specified, uses current file
 `nexusPascal.lsp.initializationOptions.overloadPolicy` | enum | Specify how duplicate functions or definitions are displayed
@@ -40,11 +40,7 @@ Setting | Type | Description |
 ## General Settings
 Setting | Type | Description |
 --------|------|-------------|
-`nexusPascal.searchPath` | string[] | Unit file search path (-Fu)
-`nexusPascal.libPath` | string[] | Library search path (-Fl)
-`nexusPascal.customOptions` | string[] | Custom options
 `nexusPascal.debug.autoBuild` | boolean | Automatically compile default project before debugging when files have changes
-`nexusPascal.lazarus.enabled` | boolean | Enable Lazarus project support for .lpi files and Lazarus-specific features
 
 ## How to Configure
 
@@ -71,7 +67,5 @@ For project-specific settings, create a `.vscode/settings.json` file in your wor
 
 ```json
 {
-  "nexusPascal.searchPath": ["./lib", "./units"],
-  "nexusPascal.customOptions": ["-dDEBUG"]
 }
 ```

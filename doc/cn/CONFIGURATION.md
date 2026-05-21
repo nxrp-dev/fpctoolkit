@@ -6,7 +6,6 @@ Nexus Pascal 扩展提供了多种可在 VS Code 设置中配置的选项：
 设置项 | 类型 | 描述 |
 --------|------|-------------|
 `nexusPascal.env.PP` | string | 编译器位置 (例如：`/usr/bin/fpc`, `/usr/bin/ppc386`)
-`nexusPascal.env.FPCDIR` | string | Free Pascal 源代码位置 (例如：`/usr/local/share/fpcsrc`)
 `nexusPascal.env.LAZARUSDIR` | string | Lazarus 源代码位置 (例如：`/usr/local/share/lazsrc`)
 `nexusPascal.env.FPCTARGET` | string | 目标操作系统 (例如：`win32`, `win64`, `linux`, `darwin`)
 `nexusPascal.env.FPCTARGETCPU` | string | 目标CPU族 (例如：`x86_64`)
@@ -15,6 +14,7 @@ Nexus Pascal 扩展提供了多种可在 VS Code 设置中配置的选项：
 设置项 | 类型 | 描述 |
 --------|------|-------------|
 `nexusPascal.pasls.path` | string | Pascal 语言服务器 (pasls) 文件位置
+`nexusPascal.languageServer.FPCSourceDirectory` | string | 语言服务器用于 RTL/FCL 导航的 Free Pascal 源代码目录 (例如：`C:\lazarus\fpc\3.2.2\source`, `/usr/local/share/fpcsrc`)
 `nexusPascal.lsp.trace.server` | string | 跟踪 VS Code 和 pascal 语言服务器之间的通讯信息
 `nexusPascal.lsp.initializationOptions.program` | string | 主程序文件。如果未指定，则使用当前文件
 `nexusPascal.lsp.initializationOptions.overloadPolicy` | enum | 指定重复的函数或定义如何显示
@@ -40,11 +40,7 @@ Nexus Pascal 扩展提供了多种可在 VS Code 设置中配置的选项：
 ## 通用设置
 设置项 | 类型 | 描述 |
 --------|------|-------------|
-`nexusPascal.searchPath` | string[] | 单元文件搜索路径 (-Fu)
-`nexusPascal.libPath` | string[] | 库搜索路径 (-Fl)
-`nexusPascal.customOptions` | string[] | 自定义选项
 `nexusPascal.debug.autoBuild` | boolean | 当文件有更改时，在调试前自动编译默认项目
-`nexusPascal.lazarus.enabled` | boolean | 启用 Lazarus 项目支持，包括 .lpi 文件和 Lazarus 特定功能
 
 ## 如何配置
 
@@ -71,7 +67,5 @@ Nexus Pascal 扩展提供了多种可在 VS Code 设置中配置的选项：
 
 ```json
 {
-  "nexusPascal.searchPath": ["./lib", "./units"],
-  "nexusPascal.customOptions": ["-dDEBUG"]
 }
 ```

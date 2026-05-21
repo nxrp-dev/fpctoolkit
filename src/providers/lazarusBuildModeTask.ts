@@ -250,6 +250,7 @@ export class LazarusBuildModeTask implements IProjectTask {
     public createTaskDefinition(workspaceRoot: string): FpcTaskDefinition {
         // Create task definition
         const taskDef = new FpcTaskDefinition();
+        taskDef.isLazarusBuildMode = true;
         const projectDir = path.dirname(this.project.file);
         const projectFile = path.basename(this.project.file);
         const projectName = projectFile.replace(/\.(lpr|lpi)$/i, '');

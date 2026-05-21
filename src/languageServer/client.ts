@@ -110,7 +110,6 @@ function readLazarusConfig(userEnvironmentVariables: { [key: string]: string | u
                 userEnvironmentVariables['PP'] = ppMatch[1];
             }
 
-            // Extract FPCSourceDirectory (FPCDIR)
             const fpcDirMatch = content.match(/<FPCSourceDirectory[^>]*Value=["']([^"']+)["']/i);
             if (fpcDirMatch && !userEnvironmentVariables['FPCDIR']) {
                 userEnvironmentVariables['FPCDIR'] = fpcDirMatch[1];
@@ -125,7 +124,7 @@ function GetEnvironmentVariables(): { [key: string]: string | undefined } {
     // load environment variables from settings which are used for CodeTools
     const plat = process.platform;
     let userEnvironmentVariables: { [key: string]: string | undefined } = {};
-    let keys: string[] = ['PP', 'FPCDIR', 'LAZARUSDIR', 'FPCTARGET', 'FPCTARGETCPU'];
+    let keys: string[] = ['PP', 'LAZARUSDIR', 'FPCTARGET', 'FPCTARGETCPU'];
     let settingEnvironmentVariables = workspace.getConfiguration('nexusPascal.env');
     keys.forEach(key => {
         const val = settingEnvironmentVariables.get<string>(key);
@@ -133,6 +132,11 @@ function GetEnvironmentVariables(): { [key: string]: string | undefined } {
             userEnvironmentVariables[key] = val;
         }
     });
+    const languageServerConfig = workspace.getConfiguration('nexusPascal.languageServer');
+    const fpcSourceDirectory = languageServerConfig.get<string>('FPCSourceDirectory');
+    if (fpcSourceDirectory) {
+        userEnvironmentVariables['FPCDIR'] = fpcSourceDirectory;
+    }
 
     // set default value
     if (plat === 'win32' && (userEnvironmentVariables['PP'] === undefined || userEnvironmentVariables['PP'] === '')) {
@@ -486,11 +490,11 @@ export class TLangClient implements ErrorHandler  {
         if (!fpcDir || !fs.existsSync(fpcDir) || !fs.lstatSync(fpcDir).isDirectory()) {
             const openSettings = vscode.l10n.t("Open Settings");
             vscode.window.showErrorMessage(
-                vscode.l10n.t("FPCDIR is not set or invalid. Please set the FPCDIR path in settings (nexusPascal.env)"),
+                vscode.l10n.t("FPC source directory is not set or invalid. Please set the Free Pascal source directory used by the language server."),
                 openSettings
             ).then(selection => {
                 if (selection === openSettings) {
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.env.FPCDIR');
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.FPCSourceDirectory');
                 }
             });
             return;

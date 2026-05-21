@@ -6,9 +6,6 @@ import { TerminalEscape, TE_Style } from '../common/escape';
 import { diagCollection } from './task';
 import { client } from '../extension';
 
-/**
- * Base class for build terminals with common functionality
- */
 export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode.TerminalExitStatus {
     private writeEmitter = new vscode.EventEmitter<string>();
     onDidWrite: vscode.Event<string> = this.writeEmitter.event;
@@ -27,49 +24,32 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
 
     constructor(protected cwd: string, protected fpcpath: string) {
         this.diagMaps = new Map<string, vscode.Diagnostic[]>();
-        this.onDidClose((e) => {
-            // Handle close event
-        });
+        this.onDidClose((e) => {});
     }
 
-    clear() {
-        // Clear implementation
-    }
+    clear() {}
 
     open(initialDimensions: vscode.TerminalDimensions | undefined): void {
         this.doBuild();
     }
 
-    close(): void {
-        // Close implementation
-    }
+    close(): void {}
 
-    /**
-     * Abstract method to be implemented by subclasses for specific build logic
-     */
     protected abstract executeBuild(): Promise<number>;
 
-    /**
-     * Common build process wrapper
-     */
     protected async doBuild(): Promise<number> {
         this.buffer = "";
         this.errbuf = "";
         this.currentFile = "";
         this.diagMaps.clear();
 
-        // Create output directories
         this.createOutputDirectories();
 
-        // Execute the build
         const exitCode = await this.executeBuild();
 
         return exitCode;
     }
 
-    /**
-     * Create output directories from FPC arguments
-     */
     protected createOutputDirectories(args: string[] = this.args) {
         const outputFileArg = args.find(arg => arg.startsWith('-o'));
         if (outputFileArg) {
@@ -103,9 +83,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         }
     }
 
-    /**
-     * Handle build completion and diagnostics
-     */
     protected async buildend() {
         diagCollection.clear();
         let has_error: boolean = false;
@@ -141,9 +118,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         }
     }
 
-    /**
-     * Find a file in the workspace
-     */
     protected findFile(filename: string): vscode.Uri | undefined {
         // First, search in the current working directory
         let f = path.join(this.cwd, filename);
@@ -201,9 +175,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         return undefined;
     }
 
-    /**
-     * Parse FPC-style error messages
-     */
     protected parseFpcStyleError(line: string): boolean {
         // Match "Compiling /path/to/file.pas" to establish context
         // Support optional message ID prefix like (3104) Compiling ... or 3104) Compiling ...
@@ -238,14 +209,12 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
                         if (fs.existsSync(suspectedPath)) {
                             file = suspectedPath;
                         } else {
-                            // Try to find it in the workspace
                             const uri = this.findFile(file);
                             if (uri) {
                                 file = uri.fsPath;
                             }
                         }
                     } else {
-                        // Try to find it in the workspace
                         const uri = this.findFile(file);
                         if (uri) {
                             file = uri.fsPath;
@@ -280,9 +249,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         return false;
     }
 
-    /**
-     * Get diagnostic severity from level string
-     */
     protected getDiagnosticSeverity(level: string): vscode.DiagnosticSeverity {
         switch (level) {
             case 'Fatal':
@@ -299,21 +265,14 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         }
     }
 
-    /**
-     * Emit a message to the terminal
-     */
     public emit(msg: string) {
         this.writeEmitter.fire(msg + '\r\n');
     }
 
-    /**
-     * Handle process close event
-     */
     protected handleProcessClose(code: number | null): Promise<void> {
         return new Promise((resolve) => {
             this.writeEmitter.fire(`Exited with code ${code}.\r\nBuild complete. \r\n\r\n`);
             
-            // Set exit reason
             if (code === 0) {
                 this.reason = vscode.TerminalExitReason.User;
             } else {
@@ -328,9 +287,6 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
         });
     }
 
-    /**
-     * Handle stderr data
-     */
     protected stderr(data: any) {
         const output = typeof data === "string" ? data : data.toString("utf8");
         this.emit(TerminalEscape.apply({ msg: output, style: [TE_Style.Yellow] }));
