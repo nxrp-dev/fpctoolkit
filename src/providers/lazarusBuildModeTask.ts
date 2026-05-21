@@ -2,338 +2,105 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { CompileOption } from '../languageServer/options';
 import { IProjectIntf, IProjectTask } from './projectIntf';
-import { LazarusProject } from './lazarus';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
-import { FpcTaskDefinition, BuildOption, LazarusTaskDefinition } from './task';
+import { LazarusTaskDefinition, lazarusTaskProvider } from './task';
 
-/**
- * Lazarus build mode implements IProjectTask
- * Represents a build mode in a Lazarus project
- */
 export class LazarusBuildModeTask implements IProjectTask {
-    // Build mode properties
-    id?: string;             // Build mode identifier
-    name?: string;           // Build mode name
-    buildMode?: string;      // Current build mode name
-    targetOS?: string;       // Target OS for current build mode
-    targetCPU?: string;      // Target CPU for current build mode
-    targetFile?: string;     // Target file name (from <Target><Filename Value="..."/>)
-    compilerOptions?: string[]; // Compiler options
-    unitPaths?: string[];    // Unit paths
-    includePaths?: string[]; // Include file paths
-    libraryPaths?: string[]; // Library paths
-    objectPath?: string;     // Object file output path
-    outputDirectory?: string; // Output directory for current build mode
-    isInLpi: boolean; // Whether defined in LPI file
-    useLCL: boolean = false; // Whether to use LCL (Lazarus Component Library)
-    // Detailed build options - raw data parsed directly from LPI file
-    detailedBuildOptions?: {
-        // Debugging options
-        debugInfoType?: string;
-        useHeaptrc?: boolean;
-        trashVariables?: boolean;
-        useExternalDbgSyms?: boolean;
-        generateDebugInfo?: boolean;
-        
-        // Code generation options  
-        ioChecks?: boolean;
-        rangeChecks?: boolean;
-        overflowChecks?: boolean;
-        stackChecks?: boolean;
-        smartLinkUnit?: boolean;
-        linkSmart?: boolean;
-        verifyObjMethodCallValidity?: boolean;
-        optimizationLevel?: number;
-        
-        // Parsing options
-        includeAssertionCode?: boolean;
-        
-        // Custom options
-        customDefines?: string[];
-        conditionalDefines?: string[];
-        customOptions?: string[];  // Raw custom compiler options
-        
-        syntaxMode?: string; // Syntax mode
-        // Other raw options
-        [key: string]: any;
-    };
-    
-    // IProjectTask implementation
-    label: string;           // Display name
-    project: IProjectIntf;   // Associated project interface
-    
-    constructor(
-        modelName: string,
-        isDefault: boolean,
-        isInLpi: boolean,
-        project: IProjectIntf,
-        buildMode?: string,
-        targetOS?: string,
-        targetCPU?: string,
-        targetFile?: string
+    public id?: string;
+    public label: string;
+    public project: IProjectIntf;
+    public buildMode?: string;
+    public isInLpi: boolean;
+
+    public constructor(
+        ALabel: string,
+        AIsDefault: boolean,
+        AIsInLpi: boolean,
+        AProject: IProjectIntf,
+        ABuildMode?: string
     ) {
-        this.buildMode = buildMode || modelName;
-        this.project = project;
-        this.targetOS = targetOS;
-        this.targetCPU = targetCPU;
-        this.targetFile = targetFile;
-        this.isInLpi = isInLpi;
-        this.label = modelName;
+        this.label = ALabel;
+        this.project = AProject;
+        this.buildMode = ABuildMode || ALabel;
+        this.isInLpi = AIsInLpi;
+        this.id = `${this.project.file}-${this.label}`;
 
-        // Generate id: [file]-[label]-[targetOS]-[targetCPU]
-        this.id = `${this.project.file}-${this.label}-${this.targetOS||''}-${this.targetCPU || ''}`;
-        
-        // If default build mode, set as default
-        if (isDefault) {
+        if (AIsDefault) {
             this.setAsDefault();
         }
     }
-    
-    /**
-     * Get whether this build mode is default
-     */
-    get isDefault(): boolean {
-        // Get default status from global storage
-        const storage = DefaultBuildModeStorage.getInstance();
-        return storage.isDefaultBuildMode(this.id || '');
-    }
-    
-    /**
-     * Set whether this build mode is default
-     */
-    set isDefault(value: boolean) {
-        if (value) {
-            this.setAsDefault();
-        } else {
-            // If setting to false, only clear if it is currently the default
-            const storage = DefaultBuildModeStorage.getInstance();
-            if (storage.isDefaultBuildMode(this.id || '')) {
-                storage.setDefaultBuildMode("");
-                console.log(`Cleared Lazarus default build mode ${this.buildMode}`);
-            }
-        }
-    }
-    
-    /**
-     * Get compile options for this Lazarus build mode
-     * @param workspaceRoot Workspace root path
-     * @returns CompileOption object
-     */
-    getCompileOption(workspaceRoot: string): CompileOption {
-        // Create task definition
-        const taskDef = this.createTaskDefinition(workspaceRoot);
-        return new CompileOption(taskDef, workspaceRoot);
-    }
-    
-    /**
-     * Convert detailedBuildOptions to customOptions array
-     * @returns Custom compiler options array
-     */
-    private convertDetailedBuildOptionsToCustomOptions(): string[] {
-        const customOptions: string[] = [];
-        
-        if (!this.detailedBuildOptions) {
-            return ['-B']; // Default forced rebuild
-        }
-        
-        // === Debug options ===
-        if (this.detailedBuildOptions.debugInfoType) {
-            switch (this.detailedBuildOptions.debugInfoType.toLowerCase()) {
-                case 'dsdwarf2':
-                case 'dsdwarf2set':
-                    customOptions.push('-gw2');
-                    break;
-                case 'dsdwarf3':
-                    customOptions.push('-gw3');
-                    break;
-                case 'dsdwarf4':
-                    customOptions.push('-gw4');
-                    break;
-                case 'dsstabs':
-                    customOptions.push('-gs');
-                    break;
-                case 'dsauto':
-                    customOptions.push('-g');
-                    break;
-                default:
-                    customOptions.push('-g');
-                    break;
-            }
-        }
-        
-        if (this.detailedBuildOptions.generateDebugInfo && !this.detailedBuildOptions.debugInfoType) {
-            customOptions.push('-g');
-        }
-        
-        if (this.detailedBuildOptions.useHeaptrc) {
-            customOptions.push('-gh');
-        }
-        
-        if (this.detailedBuildOptions.trashVariables) {
-            customOptions.push('-gt');
-        }
-        
-        if (this.detailedBuildOptions.useExternalDbgSyms) {
-            customOptions.push('-Xg');
-        }
-        
-        // === Code generation options ===
-        if (this.detailedBuildOptions.ioChecks) {
-            customOptions.push('-Ci');
-        }
-        
-        if (this.detailedBuildOptions.rangeChecks) {
-            customOptions.push('-Cr');
-        }
-        
-        if (this.detailedBuildOptions.overflowChecks) {
-            customOptions.push('-Co');
-        }
-        
-        if (this.detailedBuildOptions.stackChecks) {
-            customOptions.push('-Ct');
-        }
-        
-        if (this.detailedBuildOptions.smartLinkUnit) {
-            customOptions.push('-CX');
-        }
-        
-        if (this.detailedBuildOptions.linkSmart) {
-            customOptions.push('-XX');
-        }
-        
-        if (this.detailedBuildOptions.verifyObjMethodCallValidity) {
-            customOptions.push('-CR');
-        }
-        
-        // === Parsing options ===
-        if (this.detailedBuildOptions.includeAssertionCode) {
-            customOptions.push('-Sa');
-        }
-        
-        // === Custom defines ===
-        if (this.detailedBuildOptions.customDefines && this.detailedBuildOptions.customDefines.length > 0) {
-            this.detailedBuildOptions.customDefines.forEach(define => {
-                if (define.trim()) {
-                    customOptions.push(`-d${define.trim()}`);
-                }
-            });
-        }
-        
-        if (this.detailedBuildOptions.conditionalDefines && this.detailedBuildOptions.conditionalDefines.length > 0) {
-            this.detailedBuildOptions.conditionalDefines.forEach(define => {
-                if (define.trim()) {
-                    customOptions.push(`-d${define.trim()}`);
-                }
-            });
-        }
-        
-        // === Raw custom options ===
-        if (this.detailedBuildOptions.customOptions && this.detailedBuildOptions.customOptions.length > 0) {
-            customOptions.push(...this.detailedBuildOptions.customOptions);
-        }
-        
-        // If no options, add basic option
-        if (customOptions.length === 0) {
-            customOptions.push('-B');
-        }
-        
-        return customOptions;
-    }
-    
-    /**
-     * Create task definition for this build mode
-     * @param workspaceRoot Workspace root path
-     * @returns FpcTaskDefinition object
-     */
-    public createTaskDefinition(workspaceRoot: string): FpcTaskDefinition {
-        const taskDef = new FpcTaskDefinition();
-        taskDef.file = this.project.file;
-        taskDef.cwd = path.dirname(this.project.file);
-        return taskDef;
-    }
-    
-    /**
-     * Get tree item for display in TreeDataProvider
-     * @returns TreeItem for this Lazarus build mode
-     */
-    getTreeItem(): vscode.TreeItem {
-        // Use already built label (includes modelname-targetOs-targetCpu)
-        const displayLabel = this.label;
 
-        // Create tree item
-        const item = new vscode.TreeItem(displayLabel, vscode.TreeItemCollapsibleState.None);
-        item.contextValue = 'lazarusbuildmode';
-        item.tooltip = `${displayLabel} (${this.project.file})`;
-        
-        // Add description for default build mode
+    public get isDefault(): boolean {
+        return DefaultBuildModeStorage.getInstance().isDefaultBuildMode(this.id || '');
+    }
+
+    public set isDefault(AValue: boolean) {
+        const lStorage = DefaultBuildModeStorage.getInstance();
+
+        if (AValue) {
+            this.setAsDefault();
+            return;
+        }
+
+        if (lStorage.isDefaultBuildMode(this.id || '')) {
+            lStorage.setDefaultBuildMode('');
+        }
+    }
+
+    public getCompileOption(AWorkspaceRoot: string): CompileOption {
+        const lOption = new CompileOption();
+        lOption.type = 'lazarus';
+        lOption.label = this.label;
+        lOption.file = this.project.file;
+        lOption.cwd = path.isAbsolute(this.project.file)
+            ? path.dirname(this.project.file)
+            : AWorkspaceRoot;
+        lOption.buildOption = undefined;
+        return lOption;
+    }
+
+    public getTreeItem(): vscode.TreeItem {
+        const lItem = new vscode.TreeItem(this.label, vscode.TreeItemCollapsibleState.None);
+        lItem.contextValue = 'lazarusbuildmode';
+        lItem.tooltip = `${this.label} (${this.project.file})`;
+
         if (this.isDefault) {
-            item.description = 'default';
+            lItem.description = 'default';
         }
-        
-        return item;
-    }
-    
-    /**
-     * Get vscode.Task object for this build mode
-     * @returns vscode.Task object
-     */
-    getTask(): vscode.Task {
-        const taskDef = new LazarusTaskDefinition();
-        taskDef.project = this.project.file;
-        taskDef.cwd = path.dirname(this.project.file);
-        taskDef.buildMode = this.buildMode;
 
-        const { lazarusTaskProvider } = require('./task');
-        return lazarusTaskProvider.getTask(this.label, taskDef);
+        return lItem;
     }
-    
-    /**
-     * Set this build mode as default
-     * Use global persistent storage to manage default status
-     */
-    async setAsDefault(): Promise<void> {
-        // Get global storage
-        const storage = DefaultBuildModeStorage.getInstance();
-        
-        // Set this build mode as default
-        storage.setDefaultBuildMode(this.id || '');
-        
-        console.log(`Set Lazarus build mode ${this.buildMode} as default`);
-        
-        try {
-            // Get workspace root directory
-            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (!workspaceRoot) {
-                console.error('No workspace folder found');
-                return;
+
+    public getTask(): vscode.Task {
+        const lDefinition = new LazarusTaskDefinition();
+        lDefinition.project = this.project.file;
+        lDefinition.cwd = path.dirname(this.project.file);
+        lDefinition.buildMode = this.buildMode;
+
+        return lazarusTaskProvider.getTask(this.label, lDefinition);
+    }
+
+    public async setAsDefault(): Promise<void> {
+        DefaultBuildModeStorage.getInstance().setDefaultBuildMode(this.id || '');
+
+        const lWorkspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!lWorkspaceRoot) {
+            return;
+        }
+
+        const lConfig = vscode.workspace.getConfiguration('tasks', vscode.Uri.file(lWorkspaceRoot));
+        const lTasks = lConfig.get<any[]>('tasks') || [];
+        let lTasksUpdated = false;
+
+        for (const lTask of lTasks) {
+            if (lTask.type === 'fpc' && typeof lTask.group === 'object' && lTask.group.isDefault) {
+                lTask.group.isDefault = undefined;
+                lTasksUpdated = true;
             }
-            
-            // Clear default flag for all FPC tasks in tasks.json
-            const config = vscode.workspace.getConfiguration('tasks', vscode.Uri.file(workspaceRoot));
-            const tasks = config.get<any[]>('tasks') || [];
-            let tasksUpdated = false;
-            
-            for (let i = 0; i < tasks.length; i++) {
-                if (tasks[i].type === 'fpc' && typeof tasks[i].group === 'object' && tasks[i].group.isDefault) {
-                    tasks[i].group.isDefault = undefined;
-                    tasksUpdated = true;
-                }
-            }
-            
-            // If any tasks updated, save tasks.json
-            if (tasksUpdated) {
-                await config.update(
-                    "tasks",
-                    tasks,
-                    vscode.ConfigurationTarget.WorkspaceFolder
-                );
-                console.log('Cleared default status for all FPC tasks');
-            }
-            
-      
-        } catch (error) {
-            console.error(`Error updating tasks.json:`, error);
+        }
+
+        if (lTasksUpdated) {
+            await lConfig.update('tasks', lTasks, vscode.ConfigurationTarget.WorkspaceFolder);
         }
     }
 }

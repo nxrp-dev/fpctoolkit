@@ -115,11 +115,6 @@
         "title": "%project.setdefault%"
       },
       {
-        "command": "nexusPascal.lazarus.convertToFpc",
-        "title": "Convert to FPC Project",
-        "category": "Nexus Pascal"
-      },
-      {
         "command": "nexusPascal.project.openWithLazarus",
         "title": "Open with Lazarus",
         "icon": "$(link-external)"
@@ -306,11 +301,6 @@
           "command": "nexusPascal.project.build",
           "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
           "group": "inline"
-        },
-        {
-          "command": "nexusPascal.lazarus.convertToFpc",
-          "when": "view == FpcProjectExplorer && viewItem == lazarusbuildmode",
-          "group": "fpcprojectcfg@5"
         }
       ],
       "view/title": [
