@@ -103,10 +103,6 @@
         "title": "%project.rebuild%"
       },
       {
-        "command": "nexusPascal.project.clean",
-        "title": "%project.clear%"
-      },
-      {
         "command": "nexusPascal.project.opensetting",
         "title": "%project.open%"
       },
@@ -180,14 +176,6 @@
           "cwd": {
             "type": "string",
             "description": "%task.cwd%"
-          },
-          "cleanExt": {
-            "type": "string",
-            "description": "%task.cleanExt%"
-          },
-          "inherited": {
-            "type": "string",
-            "description": "%task.inherited%"
           },
           "windows": {
             "type": "object",
@@ -351,11 +339,6 @@
           "command": "nexusPascal.project.rebuild",
           "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
           "group": "fpcproject@2"
-        },
-        {
-          "command": "nexusPascal.project.clean",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
-          "group": "fpcproject@3"
         },
         {
           "command": "nexusPascal.project.setdefault",

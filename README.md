@@ -16,7 +16,7 @@ For Chinese documentation, see [中文文档](README_CN.md).
 - **Project Management** - Build, rebuild, and clean FreePascal and Lazarus programs
 - **Project Templates** - Create new projects from built-in or custom templates with variable substitution
 - **Lazarus LPI Support** - Full project file support with multi-mode build management and lazbuild integration
-- **Advanced Build System** - Customizable tasks with inheritance and cross-platform compilation
+- **Advanced Build System** - Customizable tasks and cross-platform compilation
 - **Code Intelligence** - Auto-completion, go-to-definition, and symbol references
 - **Code Snippets** - Rich templates for rapid development
 - **Syntax Highlighting** - Pascal syntax with conditional compilation support
@@ -34,7 +34,7 @@ For Chinese documentation, see [中文文档](README_CN.md).
   - Template initialization and management commands
 - **Lazarus LPI Project Support**: Automatically detects and parses `.lpi` project files, extracts all build modes, and supports multi-mode build management with intelligent compiler selection (lazbuild preferred, fpc fallback)
 - **Advanced Task System**:
-  - Customize build tasks with inheritance
+  - Customize build tasks
   - Support for custom build options (target platform/CPU, output directory, compiler flags, etc.)
   - Cross-platform and multi-architecture compilation (Linux/Windows/macOS, x86_64/i386, etc.)
   - Seamless management of mixed FreePascal and Lazarus projects
@@ -113,9 +113,7 @@ Field   | Type  |  Description  |
 file  | string | Free Pascal project file (.lpr, .dpr)
 type  | string | Always `fpc`
 cwd   | string | Working directory. Uses workspace root if not set.
-cleanExt | string | File extensions to clean when cleaning the project. Use `*` to clear all files. Default: (.o, .ppu, .lfm, .a, .or, .res)
 buildOption | object | Build options
-inherited | string | Inherit from another task
 
 ### Build Options
 Field  | Type | Description  |
@@ -135,8 +133,6 @@ msgIgnore | number[] | List of message numbers to ignore (-vmxxx)
 #### Additional Options
 Field  | Type | Description  |
 -------| ---- |:---------------
-cleanExt | string | File extensions to clean when cleaning the project. Use `*` to clear all files. Default: (.o, .ppu, .lfm, .a, .or, .res)
-inherited | string | Inherit from another task
 
 #### Example
 ~~~json

@@ -27,7 +27,6 @@ export class BuildOption {
 	msgIgnore?: Number[];
 	cwd?: string;
 	objectPath?: string;
-	cleanExt?: string;
 	includePath?: string[];
 };
 
@@ -36,8 +35,6 @@ export class FpcTaskDefinition implements vscode.TaskDefinition {
 	readonly type: string = 'fpc';
 	file?: string;
 	cwd?: string;
-	cleanExt?: string;
-	inherited?: string;
 	buildOption?: BuildOption;
 }
 
@@ -56,18 +53,7 @@ export class FpcTaskProvider implements vscode.TaskProvider {
 	private defineMap: Map<string, FpcTaskDefinition> = new Map<string, FpcTaskDefinition>();
 	public taskMap: Map<string, vscode.Task> = new Map<string, vscode.Task>();
 	public GetTaskDefinition(name: string): FpcTaskDefinition | undefined {
-		let result = this.defineMap.get(name);
-		if (result && result.inherited) {
-			let base = this.defineMap.get(result.inherited);
-			if (base) {
-				let realDefinition = new FpcTaskDefinition();
-				this.mergeDefinition(base, realDefinition);
-				this.mergeDefinition(result, realDefinition);
-				return realDefinition;
-
-			}
-		}
-		return result;
+		return this.defineMap.get(name);
 	}
 	constructor(private workspaceRoot: string, private cwd: string | undefined = undefined) {
 	}
@@ -111,45 +97,7 @@ export class FpcTaskProvider implements vscode.TaskProvider {
 	private async getTasks(): Promise<vscode.Task[]> {
 		return [];
 	}
-	private mergeDefinition(from: FpcTaskDefinition, to: FpcTaskDefinition) {
-		to.file = to.file ?? from.file;
-		to.cwd = to.cwd ?? from.cwd;
-		to.cleanExt = to.cleanExt ?? from.cleanExt;
-		if (from.buildOption != undefined) {
-			if (to.buildOption === undefined) {
-				to.buildOption = Object.assign({}, from.buildOption);
-			}
-			else {
-				to.buildOption.customOptions = ([] as string[]).concat(from.buildOption.customOptions ?? [], to.buildOption.customOptions ?? []);
-				to.buildOption.libPath = ([] as string[]).concat(from.buildOption.libPath ?? [], to.buildOption.libPath ?? []);
-				to.buildOption.searchPath = ([] as string[]).concat(from.buildOption.searchPath ?? [], to.buildOption.searchPath ?? []);
-				to.buildOption.msgIgnore = ([] as Number[]).concat(from.buildOption.msgIgnore ?? [], to.buildOption.msgIgnore ?? []);
-
-				to.buildOption.optimizationLevel = to.buildOption.optimizationLevel ?? from.buildOption.optimizationLevel;
-				to.buildOption.outputFile = to.buildOption.outputFile ?? from.buildOption.outputFile;
-				to.buildOption.syntaxMode = to.buildOption.syntaxMode ?? from.buildOption.syntaxMode;
-				to.buildOption.targetCPU = to.buildOption.targetCPU ?? from.buildOption.targetCPU;
-				to.buildOption.targetOS = to.buildOption.targetOS ?? from.buildOption.targetOS;
-				to.buildOption.unitOutputDir = to.buildOption.unitOutputDir ?? from.buildOption.unitOutputDir;
-				to.buildOption.forceRebuild = to.buildOption.forceRebuild ?? from.buildOption.forceRebuild;
-
-			}
-		}
-
-	}
 	public getTask(name: string, file?: string, definition?: FpcTaskDefinition): vscode.Task {
-		// if (definition?.inherited) {
-		// 	let pdefine = this.defineMap.get(definition.inherited);
-		// 	if (pdefine) {
-		// 		let realDefinition = new FpcTaskDefinition();
-		// 		this.mergeDefinition(definition, realDefinition);
-		// 		this.mergeDefinition(pdefine, realDefinition);
-		// 		this.defineMap.set(name, realDefinition);
-		// 		let task = new FpcTask(this.cwd ? this.cwd : this.workspaceRoot, name, file!, definition, realDefinition);
-		// 		return task;
-		// 	}
-
-		// }
 		this.defineMap.set(name, definition!);
 		let task = new FpcTask(this.cwd ? this.cwd : this.workspaceRoot, name, file!, definition!);
 

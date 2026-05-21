@@ -111,9 +111,7 @@
 file  | string|Free Pascal 项目文件. (.lpr,.dpr)
 type  | string|必须是 `fpc`
 cwd   | string|当前工作目录. 如果不设置默认使用vscode工作目录.
-cleanExt|string|指定执行清理项目时需要清除的文件名后缀. 输入* 表示清除所有文件. 默认(.o,.ppu,.lfm,.a,.or,.res)
 buildOption|object|build 选项
-inherited|string| 被继承的任务名
 
 ### buildOptions
 字段   | 类型  |  描述  |

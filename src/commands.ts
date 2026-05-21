@@ -2,9 +2,8 @@ import * as vscode from 'vscode';
 import { FpcItem } from './providers/fpcItem';
 import { ProjectType } from './providers/projectType';
 import * as fs from 'fs';
-import * as fs2 from 'fs-extra';
 import path = require('path');
-import { BuildMode, FpcTask, taskProvider, FpcTaskDefinition } from './providers/task';
+import { BuildMode, FpcTask, taskProvider } from './providers/task';
 import { client } from './extension';
 import { TextEditor, TextEditorEdit } from 'vscode';
 import { ProjectTemplateManager, ProjectTemplate } from './providers/projectTemplate';
@@ -34,7 +33,6 @@ export class FpcCommandManager {
     registerAll(context: vscode.ExtensionContext) {
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.build', this.ProjectBuild));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.rebuild', this.ProjectReBuild));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.clean', this.projectClean));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.opensetting', this.ProjectOpen));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.newproject', this.ProjectNew));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.newfromtemplate', this.NewProjectFromTemplate));
@@ -202,9 +200,12 @@ export class FpcCommandManager {
             // Execute the task
             vscode.tasks.executeTask(task);
         } else {
-            // For child nodes of FPC projects, clean first then build
-            await this.projectClean(node);
-            this.ProjectBuild(node);
+            const task = await projectTask.getTask();
+            const newtask = taskProvider.taskMap.get(task.name);
+            if (newtask) {
+                (newtask as FpcTask).BuildMode = BuildMode.rebuild;
+            }
+            vscode.tasks.executeTask(task);
         }
     };
 
@@ -351,115 +352,6 @@ export class FpcCommandManager {
             vscode.window.showErrorMessage(`Failed to open template directory: ${error}`);
         }
     };
-
-    projectClean = async (node: FpcItem) => {
-        // Get the project task from the node
-        const projectTask = node.projectTask;
-        if (!projectTask) {
-            vscode.window.showErrorMessage('Invalid project task');
-            return;
-        }
-
-        // Get compile options for this task
-        const compileOption = projectTask.getCompileOption(this.workspaceRoot);
-        if (!compileOption) {
-            vscode.window.showErrorMessage('Failed to get compile options');
-            return;
-        }
-
-        let definition = compileOption.buildOption;
-        let dir = definition?.unitOutputDir;
-
-        if (!dir) { return; }
-
-        if (!path.isAbsolute(dir)) {
-            if (definition?.cwd) {
-                let cur_dir = definition.cwd;
-                if (cur_dir.startsWith('./') || cur_dir.startsWith('.\\')) {
-                    cur_dir = path.join(this.workspaceRoot, definition.cwd);
-                }
-                dir = path.join(cur_dir, dir);
-            } else {
-                dir = path.join(this.workspaceRoot, dir);
-            }
-        }
-
-        // If it is a Lazarus project, also check the compiled output in the project directory
-        if (node.projectType === ProjectType.Lazarus) {
-            const lpiPath = path.join(this.workspaceRoot, node.file);
-            const projectDir = path.dirname(lpiPath);
-
-            // Check if the project directory exists
-            if (fs.existsSync(projectDir)) {
-                // Clean up compiled output files in the project directory
-                this.cleanDirectory(projectDir);
-            }
-
-            // If there's an object path specified, clean that too
-            if (definition?.objectPath) {
-                let objPath = definition.objectPath;
-
-                // Apply variable substitution if needed
-                if (objPath.includes('$(')) {
-                    try {
-                        const { LazarusVariableSubstitution } = require('./providers/lazarusVariables');
-                        objPath = LazarusVariableSubstitution.substitute(objPath);
-                    } catch (error) {
-                        console.error('Error during variable substitution for object path:', error);
-                    }
-                }
-
-                // Resolve relative path
-                if (!path.isAbsolute(objPath)) {
-                    objPath = path.join(this.workspaceRoot, objPath);
-                }
-
-                // Clean the object path directory
-                if (fs.existsSync(objPath)) {
-                    this.cleanDirectory(objPath, definition.cleanExt);
-                }
-            }
-        }
-
-        let cleanExt = definition?.cleanExt;
-        if (fs.existsSync(dir)) {
-            this.cleanDirectory(dir, cleanExt);
-        }
-    };
-
-    // Helper method: clean up compiled output files in a directory
-    private cleanDirectory(dir: string, cleanExt?: string) {
-        try {
-            let exts = ['.o', '.ppu', '.lfm', '.a', '.or', '.res', '.rsj', '.obj'];
-            let isall = false;
-
-            if (cleanExt) {
-                if ((<String>cleanExt).trim() == '*') {
-                    isall = true;
-                }
-                let tmps = (<String>cleanExt).split(',');
-                for (const s of tmps) {
-                    exts.push(s);
-                }
-            }
-
-            let files = fs.readdirSync(dir);
-            for (let index = 0; index < files.length; index++) {
-                let file = files[index].toLowerCase();
-                let ext = path.extname(file);
-
-                if (isall || exts.includes(ext)) {
-                    try {
-                        fs2.removeSync(path.join(dir, file));
-                    } catch {
-                        // Ignore deletion failures
-                    }
-                }
-            }
-        } catch {
-            // Ignore directory handling failures
-        }
-    }
 
     projectSetDefault = async (node: FpcItem) => {
         // If this is a task node (level 1), use its project task to set as default
