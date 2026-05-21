@@ -556,20 +556,15 @@
     "build-base": "esbuild ./out/extension.js --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node"
   },
   "dependencies": {
-    "@types/fs-extra": "9.0.2",
     "fast-xml-parser": "^5.2.5",
-    "fs-extra": "9.0.1",
-    "vscode-languageclient": "^8.0.1",
-    "zod": "^3.25.76"
+    "vscode-languageclient": "^8.0.1"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",
-    "@types/mocha": "^7.0.2",
-    "@types/node": "^13.13.52",
+    "@types/node": "^16.18.126",
     "@types/vscode": "^1.89.0",
     "esbuild": "^0.27.2",
     "glob": "^7.2.0",
-    "mocha": "^9.2.1",
     "typescript": "^5.8.3"
   },
   "homepage": "https://github.com/nxrp-dev/nexus-pascal#readme"

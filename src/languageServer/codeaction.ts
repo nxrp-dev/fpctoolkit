@@ -4,11 +4,8 @@
 // sample
 // https://github.com/microsoft/vscode-extension-samples/blob/main/code-actions-sample/src/extension.ts
 
-import { match } from 'assert';
-import { disconnect } from 'process';
 import * as vscode from 'vscode';
 import { diagCollection } from '../providers/task';
-import { number } from 'zod';
 
 const COMMAND_UNUSED = 'nexusPascal.code-actions.remove_unused_variable';
 

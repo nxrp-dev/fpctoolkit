@@ -5,7 +5,6 @@ import { IProjectIntf, IProjectTask } from './projectIntf';
 import { LazarusProject } from './lazarus';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
 import { FpcTaskDefinition, BuildOption, LazarusTaskDefinition } from './task';
-import { LazarusVariableSubstitution } from './lazarusVariables';
 
 /**
  * Lazarus build mode implements IProjectTask
@@ -262,19 +261,10 @@ export class LazarusBuildModeTask implements IProjectTask {
             name: this.buildMode
         };
         
-        LazarusVariableSubstitution.initialize(
-            buildModeForSubstitution as any, 
-            projectDir,
-            projectName,
-            projectFile,
-            this.targetFile,
-            this.outputDirectory
-        );
-
         // Helper to resolve variables and relativize to workspace root
         const resolveAndRelativize = (input: string) => {
             if (!input) return input;
-            const substituted = LazarusVariableSubstitution.substitute(input);
+            const substituted = input;
             const absolute = path.isAbsolute(substituted) ? substituted : path.resolve(projectDir, substituted);
             return path.relative(workspaceRoot, absolute);
         };
@@ -304,17 +294,10 @@ export class LazarusBuildModeTask implements IProjectTask {
         // Convert detailed build options to custom compiler options
         const detailedCustomOptions = this.convertDetailedBuildOptionsToCustomOptions();
         
-        // Add compiler options and perform variable substitution
         if (this.compilerOptions && this.compilerOptions.length > 0) {
-            // If traditional compiler options exist, use them first
-            buildOption.customOptions = this.compilerOptions.map(option => 
-                LazarusVariableSubstitution.substitute(option)
-            );
+            buildOption.customOptions = [...this.compilerOptions];
         } else {
-            // Otherwise use options converted from detailed build options
-            buildOption.customOptions = detailedCustomOptions.map(option => 
-                LazarusVariableSubstitution.substitute(option)
-            );
+            buildOption.customOptions = [...detailedCustomOptions];
         }
         
         // Add include paths

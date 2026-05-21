@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as fs2 from 'fs-extra';
 
 export interface ProjectTemplate {
     name: string;
@@ -263,12 +262,7 @@ end.`,
                 const filePath = path.join(projectDir, targetPath);
                 const fileDir = path.dirname(filePath);
                 
-                // Ensure directory exists
-                if (!fs.existsSync(fileDir)) {
-                    fs2.ensureDirSync(fileDir);
-                }
-                
-                // Write file
+                fs.mkdirSync(fileDir, { recursive: true });
                 fs.writeFileSync(filePath, content);
             }
 
@@ -367,16 +361,11 @@ end.`,
             : path.join(this.workspaceRoot, ProjectTemplateManager.DEFAULT_TEMPLATE_DIR);
         
         if (!fs.existsSync(templateDir)) {
-            fs2.ensureDirSync(templateDir);
-            
-            // Create example templates
+            fs.mkdirSync(templateDir, { recursive: true });
             await this.createExampleTemplate(templateDir);
         }
     }
 
-    /**
-     * Create example templates by copying from extension
-     */
     private async createExampleTemplate(templateDir: string): Promise<void> {
         // Get extension templates directory path
         const extensionPath = vscode.extensions.getExtension('nxrp-dev.nexus-pascal')?.extensionPath;
@@ -393,12 +382,11 @@ end.`,
         }
         
         try {
-            // Copy entire templates directory to target location
-            await fs2.copy(extensionTemplateDir, templateDir, {
-                overwrite: false, // Don't overwrite existing files
-                errorOnExist: false // Don't error if target files exist
-            });
-            
+            await fs.promises.cp(extensionTemplateDir, templateDir, {
+            recursive: true,
+            force: false,
+            errorOnExist: false
+        });            
             console.log(`Templates copied from ${extensionTemplateDir} to ${templateDir}`);
         } catch (error) {
             console.error(`Failed to copy templates from ${extensionTemplateDir} to ${templateDir}:`, error);
@@ -450,7 +438,7 @@ end.`,
                 );
                 
                 if (createChoice === 'Create Directory') {
-                    fs2.ensureDirSync(dirPath);
+                    fs.mkdirSync(dirPath, { recursive: true });
                 } else {
                     return;
                 }

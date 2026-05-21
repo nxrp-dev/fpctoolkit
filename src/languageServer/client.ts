@@ -33,10 +33,10 @@ import { FpcProjectProvider } from '../providers/project';
 import * as util from '../common/util';
 import { CompileOption, InitializationOptions } from "./options";
 import { env } from 'process';
-import * as fs from 'fs-extra';
 import { client, logger } from '../extension';
 import { ClientRequest } from 'http';
 import * as cp from 'child_process';
+import * as fs from 'fs';
 
 interface InputRegion {
     startLine: number;
@@ -92,34 +92,6 @@ function getLazarusConfigPath(): string | undefined {
     return undefined;
 }
 
-function readLazarusConfig(userEnvironmentVariables: { [key: string]: string | undefined }) {
-    const configPath = getLazarusConfigPath();
-    if (configPath && fs.existsSync(configPath)) {
-        try {
-            const content = fs.readFileSync(configPath, 'utf8');
-            
-            // Extract LazarusDirectory
-            const lazDirMatch = content.match(/<LazarusDirectory[^>]*Value=["']([^"']+)["']/i);
-            if (lazDirMatch && !userEnvironmentVariables['LAZARUSDIR']) {
-                userEnvironmentVariables['LAZARUSDIR'] = lazDirMatch[1];
-            }
-
-            // Extract CompilerFilename (PP)
-            const ppMatch = content.match(/<CompilerFilename[^>]*Value=["']([^"']+)["']/i);
-            if (ppMatch && !userEnvironmentVariables['PP']) {
-                userEnvironmentVariables['PP'] = ppMatch[1];
-            }
-
-            const fpcDirMatch = content.match(/<FPCSourceDirectory[^>]*Value=["']([^"']+)["']/i);
-            if (fpcDirMatch && !userEnvironmentVariables['FPCDIR']) {
-                userEnvironmentVariables['FPCDIR'] = fpcDirMatch[1];
-            }
-        } catch (err) {
-            logger.appendLine(`Error reading Lazarus config: ${err}`);
-        }
-    }
-}
-
 function GetEnvironmentVariables(): { [key: string]: string | undefined } {
     // load environment variables from settings which are used for CodeTools
     const plat = process.platform;
@@ -136,63 +108,6 @@ function GetEnvironmentVariables(): { [key: string]: string | undefined } {
     const fpcSourceDirectory = languageServerConfig.get<string>('FPCSourceDirectory');
     if (fpcSourceDirectory) {
         userEnvironmentVariables['FPCDIR'] = fpcSourceDirectory;
-    }
-
-    // set default value
-    if (plat === 'win32' && (userEnvironmentVariables['PP'] === undefined || userEnvironmentVariables['PP'] === '')) {
-        ///3.2.2/bin/i386-win32/fpc.exe
-        //search lazarus
-        let dirs = ['C:/lazarus/fpc', 'C:/FPC'];
-        let ver_test = /\d+\.\d+\.\d+/;
-        for (const _dir of dirs) {
-            if (fs.pathExistsSync(_dir)) {
-                let subdirs = fs.readdirSync(_dir);
-                for (const fpcver of subdirs) {
-                    if (ver_test.test(fpcver)) { //found it 
-                        if (_dir.startsWith('C:/lazarus')) {
-                            userEnvironmentVariables['LAZARUSDIR'] = 'C:/lazarus';
-                            env['LAZARUSDIR'] = userEnvironmentVariables['LAZARUSDIR'];
-                        }
-                        userEnvironmentVariables['PP'] = path.join(_dir, fpcver, 'bin', 'i386-win32', 'fpc.exe');
-                        userEnvironmentVariables['FPCDIR'] = path.join(_dir, fpcver, 'source');
-                        env['PP'] = userEnvironmentVariables['PP'];
-
-                        return userEnvironmentVariables;
-                    }
-                }
-            }
-        }
-    } 
-    
-    // Linux/Darwin or Windows fallback
-    if (plat !== 'win32') {
-        let dirs = ['/usr/bin/fpc', '/usr/local/bin/fpc'];
-        if (plat === 'darwin') {
-            dirs.push('/Applications/Lazarus/fpc/bin/x86_64-darwin/fpc');
-        }
-        
-        for (const _dir of dirs) {
-            if (fs.existsSync(_dir)) {
-                if (!userEnvironmentVariables['PP']) {
-                    userEnvironmentVariables['PP'] = _dir;
-                }
-            }
-        }
-        if (fs.existsSync('/usr/local/share/fpcsrc')) {
-            if (!userEnvironmentVariables['FPCDIR']) {
-                userEnvironmentVariables['FPCDIR'] = '/usr/local/share/fpcsrc';
-            }
-        }
-    }
-
-    // Try reading from Lazarus config if still missing
-    if (!userEnvironmentVariables['FPCDIR'] || !userEnvironmentVariables['LAZARUSDIR'] || !userEnvironmentVariables['PP']) {
-        readLazarusConfig(userEnvironmentVariables);
-    }
-
-    // Final fallback for Mac Lazarus
-    if (plat === 'darwin' && !userEnvironmentVariables['LAZARUSDIR'] && fs.existsSync('/Applications/Lazarus')) {
-        userEnvironmentVariables['LAZARUSDIR'] = '/Applications/Lazarus';
     }
 
     if (userEnvironmentVariables['PP']) env['PP'] = userEnvironmentVariables['PP'];
