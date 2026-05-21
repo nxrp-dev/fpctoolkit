@@ -39,6 +39,7 @@ export class FpcCommandManager {
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.add', this.ProjectAdd));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.setdefault', this.projectSetDefault));
         context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.openWithLazarus', this.openWithLazarus));
+        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.languageServer.selectFPCSourceDirectory', this.SelectFPCSourceDirectory));
 
         context.subscriptions.push(vscode.commands.registerTextEditorCommand('nexusPascal.code.complete', this.CodeComplete));
     }
@@ -246,6 +247,28 @@ export class FpcCommandManager {
         } else {
             vscode.window.showErrorMessage("Task configuration file not found");
         }
+    };
+
+
+    SelectFPCSourceDirectory = async () => {
+        const selectedFolders = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            title: 'Select Free Pascal Source Directory'
+        });
+
+        if (!selectedFolders || selectedFolders.length === 0) {
+            return;
+        }
+
+        await vscode.workspace
+            .getConfiguration('nexusPascal.languageServer')
+            .update(
+                'FPCSourceDirectory',
+                selectedFolders[0].fsPath,
+                vscode.ConfigurationTarget.Global
+            );
     };
 
     ProjectNew = async () => {

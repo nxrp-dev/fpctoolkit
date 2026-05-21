@@ -403,12 +403,16 @@ export class TLangClient implements ErrorHandler  {
         const fpcDir = envVars['FPCDIR'];
         logger.appendLine("fpcDir: " + fpcDir);
         if (!fpcDir || !fs.existsSync(fpcDir) || !fs.lstatSync(fpcDir).isDirectory()) {
+            const selectFolder = vscode.l10n.t("Select Folder");
             const openSettings = vscode.l10n.t("Open Settings");
             vscode.window.showErrorMessage(
                 vscode.l10n.t("FPC source directory is not set or invalid. Please set the Free Pascal source directory used by the language server."),
+                selectFolder,
                 openSettings
             ).then(selection => {
-                if (selection === openSettings) {
+                if (selection === selectFolder) {
+                    vscode.commands.executeCommand('nexusPascal.languageServer.selectFPCSourceDirectory');
+                } else if (selection === openSettings) {
                     vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.FPCSourceDirectory');
                 }
             });

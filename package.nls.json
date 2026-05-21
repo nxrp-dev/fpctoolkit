@@ -1,7 +1,7 @@
 {
-	"project.build": "Build Project",
+    "project.build": "Build Project",
     "project.rebuild": "Rebuild",
-    "project.open":  "Open",
+    "project.open": "Open",
     "project.newproject": "Create New Project",
     "project.newconfig": "Create New Configuration",
     "project.setdefault": "Set as Default Task",
@@ -16,9 +16,9 @@
     "task.buildOption.syntaxMode": "Syntax mode (-M,{$mode})",
     "task.buildOption.optimizationLevel": "Code optimization level (-O)",
     "task.buildOption.forceRebuild": "Force update all unit files and compile.(-B)",
-    "task.buildOption.msgIgnore":"Specify which messages should not be displayed during compilation. Multiple error,warn,note numbers can be specified.(-vmxxx)",          
+    "task.buildOption.msgIgnore": "Specify which messages should not be displayed during compilation. Multiple error,warn,note numbers can be specified.(-vmxxx)",
     "config.env.PP": "Compiler location (i.e. `/usr/bin/fpc`, `/usr/bin/ppc386`)",
-    "config.languageServer.FPCSourceDirectory": "Free Pascal source directory used by the language server for RTL/FCL navigation. Example: `C:\\lazarus\\fpc\\3.2.2\\source` or `/usr/local/share/fpcsrc`.",
+    "config.languageServer.FPCSourceDirectory": "Free Pascal source directory used by the language server for RTL/FCL navigation. [Select folder...](command:nexusPascal.languageServer.selectFPCSourceDirectory) Example: `C:\\lazarus\\fpc\\3.2.2\\source` or `/usr/local/share/fpcsrc`.",
     "config.env.LAZARUSDIR": "Lazarus source code location e.g.:`/usr/local/share/lazsrc`",
     "config.env.FPCTARGET": "Target operating system e.g.: (`win32`,`win64`, `linux`, `darwin`)",
     "config.env.FPCTARGETCPU": "Target CPU family e.g.: `x86_64`",
@@ -40,8 +40,7 @@
     "lsp.enum.overloadPolicy_1": "Show multiple names",
     "lsp.enum.overloadPolicy_2": "Show only the first one",
     "lsp.enum.overloadPolicy_3": "Add numbers before names",
-
-    "views.welcome":"No project files found.\n[Create New Project](command:nexusPascal.project.newproject)",
+    "views.welcome": "No project files found.\n[Create New Project](command:nexusPascal.project.newproject)",
     "config.format.tabsize": "Number of spaces to convert tab to.",
     "config.format.enabled": "Enable source code formatting (using Jedi).",
     "config.format.cfgpath": "Format configuration file path(jcfsettings.cfg).",
@@ -50,5 +49,6 @@
     "project.inittemplatedir": "Initialize Template Directory to Workspace",
     "project.inittemplatedirtouser": "Initialize Template Directory to User Space",
     "project.opentemplatedir": "Open Template Directory",
-    "config.project.templateDirectories": "Custom directories to search for project templates. Can be absolute paths or relative to workspace root."
+    "config.project.templateDirectories": "Custom directories to search for project templates. Can be absolute paths or relative to workspace root.",
+    "languageServer.selectFPCSourceDirectory": "Select Free Pascal Source Directory"
 }
