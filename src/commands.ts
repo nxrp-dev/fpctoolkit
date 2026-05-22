@@ -1,256 +1,127 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
+
+import { client } from './extension';
 import { FpcItem } from './providers/fpcItem';
 import { ProjectType } from './providers/projectType';
-import * as fs from 'fs';
-import path = require('path');
-import { BuildMode, FpcTask, taskProvider } from './providers/task';
-import { client } from './extension';
-import { TextEditor, TextEditorEdit } from 'vscode';
 import { ProjectTemplateManager } from './providers/projectTemplate';
-import { LazarusBuildModeTask } from './providers/lazarusBuildModeTask';
+import { BuildMode, FpcTask, LazarusTask, lazarusTaskProvider, taskProvider } from './providers/task';
+
+const BUILD_LABELS = ['debug', 'release', 'Other ...'];
+const COMMANDS = {
+    build: 'nexusPascal.project.build',
+    rebuild: 'nexusPascal.project.rebuild',
+    openSetting: 'nexusPascal.project.opensetting',
+    newProject: 'nexusPascal.project.newproject',
+    newFromTemplate: 'nexusPascal.project.newfromtemplate',
+    add: 'nexusPascal.project.add',
+    setDefault: 'nexusPascal.project.setdefault',
+    openWithLazarus: 'nexusPascal.project.openWithLazarus',
+    selectFpcSourceDirectory: 'nexusPascal.languageServer.selectFPCSourceDirectory',
+    completeCode: 'nexusPascal.code.complete'
+};
 
 export class FpcCommandManager {
-    // Static variable for storing extension context
     private static _context: vscode.ExtensionContext;
-    private templateManager: ProjectTemplateManager;
+    private readonly templateManager: ProjectTemplateManager;
 
-    constructor(private workspaceRoot: string) {
+    constructor(private readonly workspaceRoot: string) {
         this.templateManager = new ProjectTemplateManager(workspaceRoot);
     }
 
-    // Set extension context
     public static setContext(context: vscode.ExtensionContext): void {
         FpcCommandManager._context = context;
     }
 
-    // Getter for context
     public static get context(): vscode.ExtensionContext {
         if (!FpcCommandManager._context) {
             throw new Error('Extension context not initialized');
         }
         return FpcCommandManager._context;
     }
-    registerAll(context: vscode.ExtensionContext) {
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.build', this.ProjectBuild));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.rebuild', this.ProjectReBuild));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.opensetting', this.ProjectOpen));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.newproject', this.ProjectNew));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.newfromtemplate', this.NewProjectFromTemplate));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.add', this.ProjectAdd));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.setdefault', this.projectSetDefault));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.project.openWithLazarus', this.openWithLazarus));
-        context.subscriptions.push(vscode.commands.registerCommand('nexusPascal.languageServer.selectFPCSourceDirectory', this.SelectFPCSourceDirectory));
 
-        context.subscriptions.push(vscode.commands.registerTextEditorCommand('nexusPascal.code.complete', this.CodeComplete));
+    public registerAll(context: vscode.ExtensionContext): void {
+        this.registerCommand(context, COMMANDS.build, this.projectBuild);
+        this.registerCommand(context, COMMANDS.rebuild, this.projectRebuild);
+        this.registerCommand(context, COMMANDS.openSetting, this.projectOpen);
+        this.registerCommand(context, COMMANDS.newProject, this.projectNew);
+        this.registerCommand(context, COMMANDS.newFromTemplate, this.projectNew);
+        this.registerCommand(context, COMMANDS.add, this.projectAdd);
+        this.registerCommand(context, COMMANDS.setDefault, this.projectSetDefault);
+        this.registerCommand(context, COMMANDS.openWithLazarus, this.openWithLazarus);
+        this.registerCommand(context, COMMANDS.selectFpcSourceDirectory, this.selectFpcSourceDirectory);
+
+        context.subscriptions.push(
+            vscode.commands.registerTextEditorCommand(COMMANDS.completeCode, this.codeComplete)
+        );
     }
 
-    ProjectAdd = async (node: FpcItem) => {
-        if (node.level === 0) {
-            // If it is a Lazarus project, do not allow adding new build configurations, as configurations come from the .lpi file
-            if (node.projectType === ProjectType.Lazarus) {
-                vscode.window.showInformationMessage('The build configurations of Lazarus projects are managed by the .lpi file and do not need to be added manually.');
-                return;
-            }
+    private registerCommand(
+        context: vscode.ExtensionContext,
+        command: string,
+        handler: (...args: any[]) => unknown
+    ): void {
+        context.subscriptions.push(vscode.commands.registerCommand(command, handler));
+    }
 
-            let config = vscode.workspace.getConfiguration('tasks', vscode.Uri.file(this.workspaceRoot));
-
-            let inp = await vscode.window.showQuickPick(['debug', 'release', 'Other ...'], { canPickMany: false });
-            if (!inp) {
-                return;
-            }
-            let label: string | undefined;
-            switch (inp) {
-                case 'debug':
-                    label = 'debug';
-                    break;
-                case 'release':
-                    label = 'release';
-                    break;
-
-                default:
-                    label = await vscode.window.showInputBox({ prompt: 'Input build label:' });
-
-                    break;
-            }
-            if (!label) {
-                return;
-            }
-
-            let tasks = config.tasks || [];
-            
-            // Check for duplicate labels and modify if necessary
-            let finalLabel = label;
-            const currentProjectName = path.basename(node.label, path.extname(node.label));
-            
-            // Find tasks with the same label
-            const duplicateTasks = tasks.filter((task: any) => task.label === label);
-            
-            if (duplicateTasks.length > 0) {
-                // Check if any duplicate task belongs to a different project
-                const differentProjectTask = duplicateTasks.find((task: any) => {
-                    const taskProjectName = path.basename(task.file, path.extname(task.file));
-                    return taskProjectName !== currentProjectName;
-                });
-                
-                if (differentProjectTask) {
-                    // If there's a task with same label from different project, add project name suffix
-                    finalLabel = `${label}-${currentProjectName}`;
-                    
-                    // Check if the new label with project name suffix is still duplicate
-                    if (tasks.some((task: any) => task.label === finalLabel)) {
-                        vscode.window.showWarningMessage(`Task "${finalLabel}" already exists. Skipping task creation.`);
-                        return;
-                    }
-                } else {
-                    // If all duplicate tasks are from the same project, don't add the task
-                    vscode.window.showWarningMessage(`Task "${label}" already exists for this project. Skipping task creation.`);
-                    return;
-                }
-            }
-
-            let v = {
-                "label": finalLabel,
-                "file": node.label,
-                "type": "fpc",
-                "buildOption": {
-                    "syntaxMode": "ObjFPC",
-                    "unitOutputDir": "./out"
-                }
-            };
-
-            tasks.push(v);
-            config.update(
-                "tasks",
-                tasks,
-                vscode.ConfigurationTarget.WorkspaceFolder
-            );
-        }
-    };
-
-    ProjectBuild = async (node: FpcItem) => {
-        // Root node (level 0) does not trigger build
-        if (node.level === 0) {
+    private projectAdd = async (node?: FpcItem): Promise<void> => {
+        if (!node || node.level !== 0) {
             return;
         }
 
-        // Get the project task from the node
-        const projectTask = node.projectTask;
-        if (!projectTask) {
-            vscode.window.showErrorMessage('Invalid project task');
-            return;
-        }
-
-        // Get the task from the project task (this will auto-generate config if needed)
-        const task = await projectTask.getTask();
-
-        // Execute the task
-        vscode.tasks.executeTask(task);
-    };
-
-    ProjectReBuild = async (node: FpcItem) => {
-        // Only child nodes (build configurations) can perform the ReBuild operation
-        if (node.level === 0) {
-            // Root node (project level) does not perform any operation
-            return;
-        }
-
-        // Get the project task from the node
-        const projectTask = node.projectTask;
-        if (!projectTask) {
-            vscode.window.showErrorMessage('Invalid project task');
-            return;
-        }
-
-        // Handle child nodes of Lazarus projects
         if (node.projectType === ProjectType.Lazarus) {
-            // Get the task from the project task
-            const task = await projectTask.getTask();
-            
-            // Get compile options for this task
-            const compileOption = projectTask.getCompileOption(this.workspaceRoot);
-            if (!compileOption) {
-                vscode.window.showErrorMessage('Failed to get compile options');
-                return;
-            }
-
-            // Ensure build options contain the force rebuild flag
-            if (compileOption.buildOption) {
-                compileOption.buildOption.forceRebuild = true;
-            }
-
-            // Set to rebuild mode
-            let newtask = taskProvider.taskMap.get(task.name);
-            if (newtask) {
-                (newtask as FpcTask).BuildMode = BuildMode.rebuild;
-            }
-
-            // Execute the task
-            vscode.tasks.executeTask(task);
-        } else {
-            const task = await projectTask.getTask();
-            const newtask = taskProvider.taskMap.get(task.name);
-            if (newtask) {
-                (newtask as FpcTask).BuildMode = BuildMode.rebuild;
-            }
-            vscode.tasks.executeTask(task);
-        }
-    };
-
-    ProjectOpen = async (node?: FpcItem) => {
-        // If a node is provided and it is a Lazarus project, open the .lpi file
-        if (node && node.projectType === ProjectType.Lazarus) {
+            vscode.window.showInformationMessage(
+                'Lazarus build configurations are managed by the Lazarus project file.'
+            );
             return;
-            // var lpiFile = path.join(this.workspaceRoot, node.file);
-            // if(!node.projectTask?.isInLpi){
-            //     lpiFile = path.join(this.workspaceRoot, node.file.replace(/\.lpi$/, '.lps'));
-            // }
-            // if (fs.existsSync(lpiFile)) {
-            //     const doc = await vscode.workspace.openTextDocument(lpiFile);
-            //     const text = doc.getText();
-            //     // Find <BuildModes> section (supports tags with attributes)
-            //     const buildModesMatch = text.match(/<BuildModes[^>]*>([\s\S]*?)<\/BuildModes>/i);
-            //     let offset = 0;
-            //     if (buildModesMatch) {
-            //         const buildModesContent = buildModesMatch[1];
-            //         const fullMatch = buildModesMatch[0];
-            //         const buildModesStart = (buildModesMatch.index || 0) + (fullMatch.length - buildModesContent.length - '</BuildModes>'.length);
-            //         // Try two formats: <Item Name="..."> and <ItemX Name="...">
-            //         let itemMatch: RegExpMatchArray | null = null;
-                    
-            //         // First try <Item Name="..."> format
-            //         const itemRegex1 = new RegExp(`<Item\\s+Name\\s*=\\s*["']${node.label}["']`, 'i');
-            //         itemMatch = buildModesContent.match(itemRegex1);
-                    
-            //         // If not found, try <ItemX Name="..."> format (like <Item1>, <Item2>, etc.)
-            //         if (!itemMatch) {
-            //             const itemRegex2 = new RegExp(`<Item\\d*\\s+Name\\s*=\\s*["']${node.label}["']`, 'i');
-            //             itemMatch = buildModesContent.match(itemRegex2);
-            //         }
-                    
-            //         if (itemMatch && itemMatch.index !== undefined) {
-            //             offset = buildModesStart + itemMatch.index;
-            //         }
-            //     }
-            //     const position = doc.positionAt(offset);
-            //     await vscode.window.showTextDocument(doc, { selection: new vscode.Selection(position, position) });
-            //     return;
-            // }
         }
 
-        // By default, open tasks.json
-        const file = path.join(this.workspaceRoot, ".vscode", "tasks.json");
-        if (fs.existsSync(file)) {
-            const doc = await vscode.workspace.openTextDocument(file);
-            const offset = doc.getText().indexOf('"label": "' + node?.label + '"');
-            const position = doc.positionAt(offset);
-            await vscode.window.showTextDocument(doc, { selection: new vscode.Selection(position, position) });
-        } else {
-            vscode.window.showErrorMessage("Task configuration file not found");
+        const label = await this.askForBuildLabel();
+        if (!label) {
+            return;
         }
+
+        const tasks = this.getConfiguredTasks();
+        const finalLabel = this.getUniqueTaskLabel(label, node, tasks);
+        if (!finalLabel) {
+            return;
+        }
+
+        tasks.push({
+            label: finalLabel,
+            file: node.label,
+            type: 'fpc',
+            buildOption: {
+                syntaxMode: 'ObjFPC',
+                unitOutputDir: './out'
+            }
+        });
+
+        await this.updateConfiguredTasks(tasks);
     };
 
+    private projectBuild = async (node?: FpcItem): Promise<void> => {
+        await this.executeProjectTask(node, false);
+    };
 
-    SelectFPCSourceDirectory = async () => {
+    private projectRebuild = async (node?: FpcItem): Promise<void> => {
+        await this.executeProjectTask(node, true);
+    };
+
+    private projectOpen = async (node?: FpcItem): Promise<void> => {
+        const tasksFile = path.join(this.workspaceRoot, '.vscode', 'tasks.json');
+        if (!fs.existsSync(tasksFile)) {
+            vscode.window.showErrorMessage('Task configuration file not found.');
+            return;
+        }
+
+        const document = await vscode.workspace.openTextDocument(tasksFile);
+        const selection = this.findTaskSelection(document, node?.label);
+        await vscode.window.showTextDocument(document, { selection });
+    };
+
+    private selectFpcSourceDirectory = async (): Promise<void> => {
         const selectedFolders = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
@@ -258,95 +129,200 @@ export class FpcCommandManager {
             title: 'Select Free Pascal Source Directory'
         });
 
-        if (!selectedFolders || selectedFolders.length === 0) {
+        const selectedFolder = selectedFolders?.[0];
+        if (!selectedFolder) {
             return;
         }
 
         await vscode.workspace
             .getConfiguration('nexusPascal.languageServer')
-            .update(
-                'FPCSourceDirectory',
-                selectedFolders[0].fsPath,
-                vscode.ConfigurationTarget.Global
-            );
+            .update('FPCSourceDirectory', selectedFolder.fsPath, vscode.ConfigurationTarget.Global);
     };
 
-    ProjectNew = async () => {
+    private projectNew = async (): Promise<void> => {
         try {
             const selectedTemplate = await this.templateManager.selectTemplate();
-
             if (!selectedTemplate) {
                 return;
             }
 
-            const projectName = await vscode.window.showInputBox({
-                prompt: 'Enter project name',
-                value: 'newproject',
-                validateInput: (value: string) => {
-                    if (!value || value.trim().length === 0) {
-                        return 'Project name cannot be empty';
-                    }
-                    if (!/^[a-zA-Z0-9_-]+$/.test(value.trim())) {
-                        return 'Project name can only contain letters, numbers, underscores and hyphens';
-                    }
-                    return null;
-                }
-            });
-
-            if (projectName) {
-                await this.templateManager.createProjectFromTemplate(selectedTemplate, projectName.trim());
+            const projectName = await this.askForProjectName();
+            if (!projectName) {
+                return;
             }
+
+            await this.templateManager.createProjectFromTemplate(selectedTemplate, projectName);
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create project from starter: ${error}`);
         }
     };
 
-    NewProjectFromTemplate = async () => {
-        await this.ProjectNew();
-    };
-
-    projectSetDefault = async (node: FpcItem) => {
-        // If this is a task node (level 1), use its project task to set as default
-        if (node.level === 1 && node.projectTask) {
-            await node.projectTask.setAsDefault();
-
-            // Refresh the unified project explorer to update the UI
-            const { projectProvider } = require('./extension');
-            projectProvider?.refresh();
-
-            // Restart the client to apply changes
-            await client.restart();
+    private projectSetDefault = async (node?: FpcItem): Promise<void> => {
+        if (!node || node.level !== 1 || !node.projectTask) {
             return;
         }
+
+        await node.projectTask.setAsDefault();
+        await this.refreshProjectExplorer();
+        await this.restartLanguageServer();
     };
 
-    openWithLazarus = async (node: FpcItem) => {
-        // Only support Lazarus projects at level 0
-        if (node.level !== 0 || node.projectType !== ProjectType.Lazarus) {
+    private openWithLazarus = async (node?: FpcItem): Promise<void> => {
+        if (!node || node.level !== 0 || node.projectType !== ProjectType.Lazarus) {
             vscode.window.showErrorMessage('This command is only available for Lazarus projects.');
             return;
         }
 
-        // Get the project file path
-        const projectFile = path.isAbsolute(node.file) ? node.file : path.join(this.workspaceRoot, node.file);
+        const projectFile = this.resolveWorkspacePath(node.file);
         if (!fs.existsSync(projectFile)) {
             vscode.window.showErrorMessage(`Project file not found: ${projectFile}`);
             return;
         }
 
         try {
-            // Use vscode.env.openExternal to open the file with the default associated application
-            // This simulates the file explorer's "Open with" behavior
-            const fileUri = vscode.Uri.file(projectFile);
-            await vscode.env.openExternal(fileUri);
-            
-            //vscode.window.showInformationMessage(`Opening ${path.basename(projectFile)} with default application...`);
+            await vscode.env.openExternal(vscode.Uri.file(projectFile));
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to open with default application: ${error}`);
         }
     };
 
-    CodeComplete = (textEditor: TextEditor, edit: TextEditorEdit) => {
-        client.doCodeComplete(textEditor);
+    private codeComplete = (textEditor: vscode.TextEditor): void => {
+        client?.doCodeComplete(textEditor);
     };
+
+    private async executeProjectTask(node: FpcItem | undefined, rebuild: boolean): Promise<void> {
+        if (!node || node.level === 0) {
+            return;
+        }
+
+        const projectTask = node.projectTask;
+        if (!projectTask) {
+            vscode.window.showErrorMessage('Invalid project task.');
+            return;
+        }
+
+        const task = await projectTask.getTask();
+        if (rebuild) {
+            this.setTaskBuildMode(task, BuildMode.rebuild);
+        }
+
+        await vscode.tasks.executeTask(task);
+    }
+
+    private setTaskBuildMode(task: vscode.Task, buildMode: BuildMode): void {
+        const liveTask =
+            taskProvider?.taskMap.get(task.name) ||
+            lazarusTaskProvider?.taskMap.get(task.name) ||
+            task;
+
+        if (liveTask instanceof FpcTask || liveTask instanceof LazarusTask) {
+            liveTask.BuildMode = buildMode;
+        }
+    }
+
+    private async askForBuildLabel(): Promise<string | undefined> {
+        const selected = await vscode.window.showQuickPick(BUILD_LABELS, { canPickMany: false });
+        if (!selected) {
+            return undefined;
+        }
+
+        if (selected !== 'Other ...') {
+            return selected;
+        }
+
+        const customLabel = await vscode.window.showInputBox({ prompt: 'Input build label:' });
+        return customLabel?.trim() || undefined;
+    }
+
+    private async askForProjectName(): Promise<string | undefined> {
+        const value = await vscode.window.showInputBox({
+            prompt: 'Enter project name',
+            value: 'newproject',
+            validateInput: (value: string) => {
+                const trimmed = value.trim();
+                if (!trimmed) {
+                    return 'Project name cannot be empty';
+                }
+                if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+                    return 'Project name can only contain letters, numbers, underscores and hyphens';
+                }
+                return null;
+            }
+        });
+        return value?.trim() || undefined;
+    }
+
+    private getConfiguredTasks(): any[] {
+        return this.getTasksConfiguration().get<any[]>('tasks', []);
+    }
+
+    private async updateConfiguredTasks(tasks: any[]): Promise<void> {
+        await this.getTasksConfiguration().update(
+            'tasks',
+            tasks,
+            vscode.ConfigurationTarget.WorkspaceFolder
+        );
+    }
+
+    private getTasksConfiguration(): vscode.WorkspaceConfiguration {
+        return vscode.workspace.getConfiguration('tasks', vscode.Uri.file(this.workspaceRoot));
+    }
+
+    private getUniqueTaskLabel(label: string, node: FpcItem, tasks: any[]): string | undefined {
+        const currentProjectName = path.basename(node.label, path.extname(node.label));
+        const duplicateTasks = tasks.filter(task => task.label === label);
+
+        if (duplicateTasks.length === 0) {
+            return label;
+        }
+
+        const hasDifferentProjectTask = duplicateTasks.some(task => {
+            const taskFile = typeof task.file === 'string' ? task.file : '';
+            const taskProjectName = path.basename(taskFile, path.extname(taskFile));
+            return taskProjectName !== currentProjectName;
+        });
+
+        if (!hasDifferentProjectTask) {
+            vscode.window.showWarningMessage(`Task "${label}" already exists for this project. Skipping task creation.`);
+            return undefined;
+        }
+
+        const projectLabel = `${label}-${currentProjectName}`;
+        if (tasks.some(task => task.label === projectLabel)) {
+            vscode.window.showWarningMessage(`Task "${projectLabel}" already exists. Skipping task creation.`);
+            return undefined;
+        }
+
+        return projectLabel;
+    }
+
+    private findTaskSelection(document: vscode.TextDocument, label?: string): vscode.Selection | undefined {
+        if (!label) {
+            return undefined;
+        }
+
+        const offset = document.getText().indexOf(`"label": "${label}"`);
+        if (offset < 0) {
+            return undefined;
+        }
+
+        const position = document.positionAt(offset);
+        return new vscode.Selection(position, position);
+    }
+
+    private resolveWorkspacePath(filePath: string): string {
+        if (path.isAbsolute(filePath)) {
+            return filePath;
+        }
+        return path.join(this.workspaceRoot, filePath);
+    }
+
+    private async refreshProjectExplorer(): Promise<void> {
+        const { projectProvider } = require('./extension');
+        projectProvider?.refresh();
+    }
+
+    private async restartLanguageServer(): Promise<void> {
+        await client?.restart();
+    }
 }
