@@ -161,19 +161,40 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             AItemMaps.set(lAbsolutePath, lItem);
         }
 
-        const lTask = new LazarusBuildModeTask(
-            ATaskDefinition.label || lBuildMode,
-            lIsDefault,
-            false,
-            lProjectIntf,
-            lBuildMode
-        );
-
-        lProjectIntf.tasks.push(lTask);
+        this.addLazarusTask(lProjectIntf, ATaskDefinition.label || lBuildMode, lIsDefault, false, lBuildMode);
+        this.addLazarusBuildModesFromProject(lProjectIntf);
 
         if (lIsDefault && lItem) {
             lItem.isDefault = true;
         }
+    }
+
+
+    private addLazarusTask(
+        AProject: LazarusProject,
+        ALabel: string,
+        AIsDefault: boolean,
+        AIsInLpi: boolean,
+        ABuildMode?: string
+    ): void {
+        const lKey = this.getLazarusTaskKey(ALabel, ABuildMode);
+        const lExists = AProject.tasks.some(ATask => this.getLazarusTaskKey(ATask.label, (ATask as LazarusBuildModeTask).buildMode) === lKey);
+
+        if (lExists) {
+            return;
+        }
+
+        AProject.tasks.push(new LazarusBuildModeTask(ALabel, AIsDefault, AIsInLpi, AProject, ABuildMode));
+    }
+
+    private addLazarusBuildModesFromProject(AProject: LazarusProject): void {
+        for (const lMode of LazarusProject.readBuildModes(AProject.file)) {
+            this.addLazarusTask(AProject, lMode.name, false, true, lMode.name);
+        }
+    }
+
+    private getLazarusTaskKey(ALabel: string, ABuildMode?: string): string {
+        return (ABuildMode || ALabel).toLowerCase();
     }
 
     private applyDefaultProjectLogic(AItemMaps: Map<string, FpcItem>): void {
