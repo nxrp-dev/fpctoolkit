@@ -1,0 +1,9 @@
+object MainFormInstance: TMainForm
+  Left = 300
+  Height = 240
+  Top = 200
+  Width = 400
+  Caption = '%PROJECT_NAME%'
+  ClientHeight = 240
+  ClientWidth = 400
+end

@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Lazarus: %PROJECT_NAME% Debug",
+            "type": "lazarus",
+            "project": "${workspaceFolder}\\%PROJECT_NAME%.lpi",
+            "cwd": "${workspaceFolder}",
+            "buildMode": "Debug",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$fpc"
+        },
+        {
+            "label": "Build Lazarus: %PROJECT_NAME% Release",
+            "type": "lazarus",
+            "project": "${workspaceFolder}\\%PROJECT_NAME%.lpi",
+            "cwd": "${workspaceFolder}",
+            "buildMode": "Release",
+            "problemMatcher": "$fpc"
+        }
+    ]
+}

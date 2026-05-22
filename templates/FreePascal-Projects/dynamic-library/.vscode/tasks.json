@@ -2,13 +2,12 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build FPC: %PROJECT_NAME%",
+            "label": "Build FPC Library: %PROJECT_NAME%",
             "type": "fpc",
             "file": "${workspaceFolder}\\%PROJECT_NAME%.lpr",
             "cwd": "${workspaceFolder}",
             "buildOption": {
-                "syntaxMode": "ObjFPC",
-                "outputFile": "${workspaceFolder}\\%PROJECT_NAME%.exe"
+                "syntaxMode": "ObjFPC"
             },
             "group": {
                 "kind": "build",

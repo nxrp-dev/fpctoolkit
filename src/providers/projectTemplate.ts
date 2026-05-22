@@ -19,8 +19,6 @@ interface StarterPickItem extends vscode.QuickPickItem {
     goBack?: boolean;
 }
 
-type JsonObject = { [key: string]: any };
-
 export class ProjectTemplateManager {
     private static readonly StarterRoot = 'templates';
     private static readonly ProjectNameToken = '%PROJECT_NAME%';
@@ -167,7 +165,7 @@ export class ProjectTemplateManager {
         const lCollisions: string[] = [];
 
         this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
-            if (this.isMergeableWorkspaceConfig(ARelativePath)) {
+            if (this.isMergeableWorkspaceFile(ARelativePath)) {
                 return;
             }
 
@@ -183,15 +181,18 @@ export class ProjectTemplateManager {
 
     private copyStarter(ASourceDir: string, ATargetDir: string, AProjectName: string): void {
         this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
-            const lRelativeTargetPath = this.applyProjectName(ARelativePath, AProjectName);
-            const lTargetPath = path.join(ATargetDir, lRelativeTargetPath);
+            const lTargetPath = path.join(ATargetDir, this.applyProjectName(ARelativePath, AProjectName));
+            fs.mkdirSync(path.dirname(lTargetPath), { recursive: true });
 
-            if (this.isMergeableWorkspaceConfig(ARelativePath)) {
-                this.mergeWorkspaceConfigFile(ASourceFile, lTargetPath, AProjectName);
+            if (this.isWorkspaceTasksFile(ARelativePath)) {
+                this.mergeWorkspaceJson(ASourceFile, lTargetPath, AProjectName, 'tasks', 'label', this.prepareTaskForMerge);
                 return;
             }
 
-            fs.mkdirSync(path.dirname(lTargetPath), { recursive: true });
+            if (this.isWorkspaceLaunchFile(ARelativePath)) {
+                this.mergeWorkspaceJson(ASourceFile, lTargetPath, AProjectName, 'configurations', 'name');
+                return;
+            }
 
             if (this.isTextFile(ASourceFile)) {
                 const lContent = fs.readFileSync(ASourceFile, 'utf8');
@@ -203,202 +204,77 @@ export class ProjectTemplateManager {
         });
     }
 
-    private mergeWorkspaceConfigFile(ASourceFile: string, ATargetFile: string, AProjectName: string): void {
-        fs.mkdirSync(path.dirname(ATargetFile), { recursive: true });
+    private mergeWorkspaceJson(
+        ASourceFile: string,
+        ATargetFile: string,
+        AProjectName: string,
+        AArrayName: 'tasks' | 'configurations',
+        AKeyName: 'label' | 'name',
+        APrepareItem?: (AExistingItems: any[], ANewItem: any) => any
+    ): void {
+        const lSourceJson = this.readStarterJsonFile(ASourceFile, AProjectName);
+        const lSourceItems = Array.isArray(lSourceJson[AArrayName]) ? lSourceJson[AArrayName] : [];
+        const lTargetJson = fs.existsSync(ATargetFile)
+            ? this.readJsonFile(ATargetFile)
+            : this.createWorkspaceJson(AArrayName);
 
-        const lSourceContent = this.applyProjectName(fs.readFileSync(ASourceFile, 'utf8'), AProjectName);
-
-        if (!fs.existsSync(ATargetFile)) {
-            fs.writeFileSync(ATargetFile, lSourceContent, 'utf8');
-            return;
-        }
-
-        const lSourceConfig = this.parseJsonConfig(lSourceContent, ASourceFile);
-        const lTargetConfig = this.parseJsonConfig(fs.readFileSync(ATargetFile, 'utf8'), ATargetFile);
-        const lFileName = path.basename(ATargetFile).toLowerCase();
-
-        if (lFileName === 'tasks.json') {
-            this.mergeNamedArray(lTargetConfig, lSourceConfig, 'tasks', 'label');
-            if (!lTargetConfig.version) {
-                lTargetConfig.version = lSourceConfig.version || '2.0.0';
-            }
-        } else if (lFileName === 'launch.json') {
-            this.mergeNamedArray(lTargetConfig, lSourceConfig, 'configurations', 'name');
-            if (!lTargetConfig.version) {
-                lTargetConfig.version = lSourceConfig.version || '0.2.0';
-            }
-        } else {
-            throw new Error(`Unsupported workspace config file: ${ATargetFile}`);
-        }
-
-        fs.writeFileSync(ATargetFile, `${JSON.stringify(lTargetConfig, null, 4)}\n`, 'utf8');
-    }
-
-    private mergeNamedArray(ATarget: JsonObject, ASource: JsonObject, AArrayName: string, AKeyName: string): void {
-        const lSourceItems = Array.isArray(ASource[AArrayName]) ? ASource[AArrayName] : [];
-
-        if (!Array.isArray(ATarget[AArrayName])) {
-            ATarget[AArrayName] = [];
-        }
+        const lTargetItems = Array.isArray(lTargetJson[AArrayName]) ? lTargetJson[AArrayName] : [];
 
         for (const lSourceItem of lSourceItems) {
-            if (!lSourceItem || typeof lSourceItem !== 'object') {
-                continue;
-            }
-
-            const lKey = lSourceItem[AKeyName];
-            if (typeof lKey !== 'string' || lKey.length === 0) {
-                ATarget[AArrayName].push(lSourceItem);
-                continue;
-            }
-
-            const lExistingIndex = ATarget[AArrayName].findIndex((ATargetItem: any) => {
-                return ATargetItem && typeof ATargetItem === 'object' && ATargetItem[AKeyName] === lKey;
-            });
-
-            if (AArrayName === 'tasks') {
-                this.adjustDefaultTask(ATarget[AArrayName], lSourceItem, lKey);
-            }
+            const lPreparedItem = APrepareItem ? APrepareItem(lTargetItems, lSourceItem) : lSourceItem;
+            const lKey = lPreparedItem[AKeyName];
+            const lExistingIndex = lTargetItems.findIndex((AItem: any) => AItem[AKeyName] === lKey);
 
             if (lExistingIndex >= 0) {
-                ATarget[AArrayName][lExistingIndex] = lSourceItem;
+                lTargetItems[lExistingIndex] = lPreparedItem;
             } else {
-                ATarget[AArrayName].push(lSourceItem);
+                lTargetItems.push(lPreparedItem);
             }
         }
+
+        lTargetJson[AArrayName] = lTargetItems;
+        fs.writeFileSync(ATargetFile, JSON.stringify(lTargetJson, null, 4) + '\n', 'utf8');
     }
 
-    private adjustDefaultTask(ATargetTasks: any[], ASourceTask: any, ASourceLabel: string): void {
-        if (!ASourceTask?.group?.isDefault) {
-            return;
-        }
-
-        const lHasOtherDefault = ATargetTasks.some((ATask) => {
-            return ATask?.label !== ASourceLabel &&
-                ATask?.group &&
-                typeof ATask.group === 'object' &&
-                ATask.group.kind === 'build' &&
-                ATask.group.isDefault === true;
-        });
-
-        if (lHasOtherDefault) {
-            delete ASourceTask.group.isDefault;
-        }
+    private readStarterJsonFile(AFileName: string, AProjectName: string): any {
+        const lContent = fs.readFileSync(AFileName, 'utf8');
+        return JSON.parse(this.applyProjectName(lContent, AProjectName));
     }
 
-    private parseJsonConfig(AContent: string, AFileName: string): JsonObject {
-        try {
-            return JSON.parse(this.toStrictJson(AContent));
-        } catch (AError) {
-            throw new Error(`Unable to parse ${AFileName}: ${AError}`);
-        }
+    private readJsonFile(AFileName: string): any {
+        const lContent = fs.readFileSync(AFileName, 'utf8');
+        return JSON.parse(lContent);
     }
 
-    private toStrictJson(AContent: string): string {
-        return this.removeTrailingCommas(this.removeJsonComments(AContent));
-    }
-
-    private removeJsonComments(AContent: string): string {
-        let lResult = '';
-        let lInString = false;
-        let lEscaped = false;
-
-        for (let lIndex = 0; lIndex < AContent.length; lIndex++) {
-            const lChar = AContent[lIndex];
-            const lNext = AContent[lIndex + 1];
-
-            if (lInString) {
-                lResult += lChar;
-
-                if (lEscaped) {
-                    lEscaped = false;
-                } else if (lChar === '\\') {
-                    lEscaped = true;
-                } else if (lChar === '"') {
-                    lInString = false;
-                }
-
-                continue;
-            }
-
-            if (lChar === '"') {
-                lInString = true;
-                lResult += lChar;
-                continue;
-            }
-
-            if (lChar === '/' && lNext === '/') {
-                while (lIndex < AContent.length && AContent[lIndex] !== '\n') {
-                    lIndex++;
-                }
-                lResult += '\n';
-                continue;
-            }
-
-            if (lChar === '/' && lNext === '*') {
-                lIndex += 2;
-                while (lIndex < AContent.length && !(AContent[lIndex] === '*' && AContent[lIndex + 1] === '/')) {
-                    lIndex++;
-                }
-                lIndex++;
-                continue;
-            }
-
-            lResult += lChar;
+    private createWorkspaceJson(AArrayName: 'tasks' | 'configurations'): any {
+        if (AArrayName === 'tasks') {
+            return { version: '2.0.0', tasks: [] };
         }
 
-        return lResult;
+        return { version: '0.2.0', configurations: [] };
     }
 
-    private removeTrailingCommas(AContent: string): string {
-        let lResult = '';
-        let lInString = false;
-        let lEscaped = false;
-
-        for (let lIndex = 0; lIndex < AContent.length; lIndex++) {
-            const lChar = AContent[lIndex];
-
-            if (lInString) {
-                lResult += lChar;
-
-                if (lEscaped) {
-                    lEscaped = false;
-                } else if (lChar === '\\') {
-                    lEscaped = true;
-                } else if (lChar === '"') {
-                    lInString = false;
-                }
-
-                continue;
-            }
-
-            if (lChar === '"') {
-                lInString = true;
-                lResult += lChar;
-                continue;
-            }
-
-            if (lChar === ',') {
-                const lNextNonWhitespace = this.findNextNonWhitespace(AContent, lIndex + 1);
-                if (lNextNonWhitespace === '}' || lNextNonWhitespace === ']') {
-                    continue;
-                }
-            }
-
-            lResult += lChar;
+    private prepareTaskForMerge = (AExistingTasks: any[], ANewTask: any): any => {
+        if (!this.hasDefaultBuildTask(AExistingTasks) || !this.isDefaultBuildTask(ANewTask)) {
+            return ANewTask;
         }
 
-        return lResult;
+        const lTask = { ...ANewTask };
+
+        if (typeof lTask.group === 'object') {
+            lTask.group = { ...lTask.group };
+            delete lTask.group.isDefault;
+        }
+
+        return lTask;
+    };
+
+    private hasDefaultBuildTask(ATasks: any[]): boolean {
+        return ATasks.some((ATask) => this.isDefaultBuildTask(ATask));
     }
 
-    private findNextNonWhitespace(AContent: string, AStartIndex: number): string | undefined {
-        for (let lIndex = AStartIndex; lIndex < AContent.length; lIndex++) {
-            if (!/\s/.test(AContent[lIndex])) {
-                return AContent[lIndex];
-            }
-        }
-
-        return undefined;
+    private isDefaultBuildTask(ATask: any): boolean {
+        return typeof ATask?.group === 'object' && ATask.group.kind === 'build' && ATask.group.isDefault === true;
     }
 
     private walkFiles(ARootDir: string, ACallback: (ASourceFile: string, ARelativePath: string) => void): void {
@@ -463,11 +339,6 @@ export class ProjectTemplateManager {
         return lExtension === '.lpr' || lExtension === '.dpr';
     }
 
-    private isMergeableWorkspaceConfig(ARelativePath: string): boolean {
-        const lNormalized = ARelativePath.replace(/\\/g, '/').toLowerCase();
-        return lNormalized === '.vscode/tasks.json' || lNormalized === '.vscode/launch.json';
-    }
-
     private getPickerTitle(AStarterRoot: string, ACurrentPath: string): string {
         const lRelativePath = path.relative(AStarterRoot, ACurrentPath);
 
@@ -500,6 +371,22 @@ export class ProjectTemplateManager {
 
     private applyProjectName(AValue: string, AProjectName: string): string {
         return AValue.split(ProjectTemplateManager.ProjectNameToken).join(AProjectName);
+    }
+
+    private isMergeableWorkspaceFile(ARelativePath: string): boolean {
+        return this.isWorkspaceTasksFile(ARelativePath) || this.isWorkspaceLaunchFile(ARelativePath);
+    }
+
+    private isWorkspaceTasksFile(ARelativePath: string): boolean {
+        return this.normalizeRelativePath(ARelativePath) === '.vscode/tasks.json';
+    }
+
+    private isWorkspaceLaunchFile(ARelativePath: string): boolean {
+        return this.normalizeRelativePath(ARelativePath) === '.vscode/launch.json';
+    }
+
+    private normalizeRelativePath(ARelativePath: string): string {
+        return ARelativePath.split(path.sep).join('/');
     }
 
     private isIgnoredTemplateFile(AFileName: string): boolean {
