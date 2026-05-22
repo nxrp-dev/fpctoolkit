@@ -90,7 +90,7 @@ function registerDebugConfiguration(context: vscode.ExtensionContext): void {
                 return config;
             },
             resolveDebugConfigurationWithSubstitutedVariables: async (folder, config, token) => {
-                if (!isPascalDebugContext()) {
+                if (!isNexusPascalDebugConfiguration(folder, config)) {
                     return config;
                 }
 
@@ -119,11 +119,67 @@ function registerDebugConfiguration(context: vscode.ExtensionContext): void {
     );
 }
 
-function isPascalDebugContext(): boolean {
-    const activeEditor = vscode.window.activeTextEditor;
-    const activeLanguageId = activeEditor?.document.languageId;
+function isNexusPascalDebugConfiguration(
+    folder: vscode.WorkspaceFolder | undefined,
+    config: vscode.DebugConfiguration
+): boolean {
+    if (String(config.type ?? '').toLowerCase() !== 'cppdbg') {
+        return false;
+    }
 
-    return activeLanguageId === 'objectpascal' || activeLanguageId === 'pascal';
+    const preLaunchTask = getPreLaunchTaskLabel(config);
+    if (!preLaunchTask) {
+        return false;
+    }
+
+    const tasks = getConfiguredTasks(folder);
+    const resolvedTaskLabel = preLaunchTask === '${defaultBuildTask}'
+        ? getDefaultBuildTaskLabel(tasks)
+        : preLaunchTask;
+
+    if (!resolvedTaskLabel) {
+        return false;
+    }
+
+    return tasks.some(task => isNexusPascalTask(task) && getTaskLabel(task) === resolvedTaskLabel);
+}
+
+function getPreLaunchTaskLabel(config: vscode.DebugConfiguration): string | undefined {
+    const preLaunchTask = config.preLaunchTask;
+
+    if (typeof preLaunchTask !== 'string') {
+        return undefined;
+    }
+
+    const label = preLaunchTask.trim();
+    return label.length > 0 ? label : undefined;
+}
+
+function getConfiguredTasks(folder: vscode.WorkspaceFolder | undefined): any[] {
+    const workspaceFolder = folder ?? vscode.workspace.workspaceFolders?.[0];
+    const resource = workspaceFolder?.uri;
+    const config = vscode.workspace.getConfiguration('tasks', resource);
+
+    return config.get<any[]>('tasks') ?? [];
+}
+
+function isNexusPascalTask(task: any): boolean {
+    const taskType = String(task?.type ?? '').toLowerCase();
+    return taskType === FpcTaskProvider.FpcTaskType || taskType === LazarusTaskProvider.LazarusTaskType;
+}
+
+function getTaskLabel(task: any): string | undefined {
+    const label = task?.label ?? task?.taskName;
+    return typeof label === 'string' ? label : undefined;
+}
+
+function getDefaultBuildTaskLabel(tasks: any[]): string | undefined {
+    const defaultTask = tasks.find(task => {
+        const group = task?.group;
+        return typeof group === 'object' && group?.kind === 'build' && group?.isDefault === true;
+    });
+
+    return defaultTask ? getTaskLabel(defaultTask) : undefined;
 }
 
 // Check file updates and auto-compile before debugging
