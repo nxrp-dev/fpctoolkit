@@ -122,10 +122,17 @@ export class FpcCommandManager {
     };
 
     private selectFpcSourceDirectory = async (): Promise<void> => {
+        const config = vscode.workspace.getConfiguration('nexusPascal.languageServer');
+        const currentPath = config.get<string>('FPCSourceDirectory');
+        const defaultUri = currentPath && fs.existsSync(currentPath)
+            ? vscode.Uri.file(currentPath)
+            : undefined;
+
         const selectedFolders = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
+            defaultUri,
             title: 'Select Free Pascal Source Directory'
         });
 
@@ -134,9 +141,8 @@ export class FpcCommandManager {
             return;
         }
 
-        await vscode.workspace
-            .getConfiguration('nexusPascal.languageServer')
-            .update('FPCSourceDirectory', selectedFolder.fsPath, vscode.ConfigurationTarget.Global);
+        await config.update('FPCSourceDirectory', selectedFolder.fsPath, vscode.ConfigurationTarget.Global);
+        await vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.FPCSourceDirectory');
     };
 
     private projectNew = async (): Promise<void> => {

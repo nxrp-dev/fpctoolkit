@@ -352,10 +352,6 @@
             "type": "string",
             "description": "%config.pasls.path%"
           },
-          "nexusPascal.languageServer.FPCSourceDirectory": {
-            "type": "string",
-            "markdownDescription": "%config.languageServer.FPCSourceDirectory%"
-          },
           "nexusPascal.format.enabled": {
             "type": "boolean",
             "default": "true",
@@ -381,7 +377,7 @@
         }
       },
       {
-        "title": "Nexus Pascal LanguageServer",
+        "title": "Nexus Pascal Language Server",
         "properties": {
           "nexusPascal.lsp.trace.server": {
             "scope": "window",
@@ -393,6 +389,10 @@
             ],
             "default": "off",
             "description": "%lsp.trace.server%"
+          },
+          "nexusPascal.languageServer.FPCSourceDirectory": {
+            "type": "string",
+            "markdownDescription": "%config.languageServer.FPCSourceDirectory%"
           },
           "nexusPascal.lsp.initializationOptions.program": {
             "type": "string",
