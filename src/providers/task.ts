@@ -12,41 +12,8 @@ import { client } from '../extension';
 import { DiagnosticSeverity } from 'vscode';
 import { LazarusBuildTerminal } from './lazarusBuildTerminal';
 import { BaseBuildTerminal } from './baseBuildTerminal';
-
-export class BuildOption {
-	targetOS?: string;
-	targetCPU?: string;
-	customOptions?: string[];
-	libPath?: string[];
-	outputFile?: string;
-	unitOutputDir?: string;
-	optimizationLevel?: number;
-	searchPath?: string[];
-	syntaxMode?: string;
-	forceRebuild?: boolean = false;
-	msgIgnore?: Number[];
-	cwd?: string;
-	objectPath?: string;
-	includePath?: string[];
-};
-
-export class FpcTaskDefinition implements vscode.TaskDefinition {
-	[name: string]: any;
-	readonly type: string = 'fpc';
-	file?: string;
-	cwd?: string;
-	buildOption?: BuildOption;
-}
-
-export class LazarusTaskDefinition implements vscode.TaskDefinition {
-	[name: string]: any;
-	readonly type: string = 'lazarus';
-	project?: string;
-	cwd?: string;
-	buildMode?: string;
-	forceRebuild?: boolean = false;
-}
-
+import { FpcTaskDefinition, LazarusTaskDefinition, isFpcTaskDefinition, isLazarusTaskDefinition } from './taskDefinitions';
+export { BuildOption, FpcTaskDefinition, LazarusTaskDefinition, NexusTaskDefinition, isFpcTaskDefinition, isLazarusTaskDefinition } from './taskDefinitions';
 
 export class FpcTaskProvider implements vscode.TaskProvider {
 	static FpcTaskType = 'fpc';
@@ -67,31 +34,32 @@ export class FpcTaskProvider implements vscode.TaskProvider {
 	}
 
 	public resolveTask(_task: vscode.Task): vscode.Task | undefined {
+		if (!isFpcTaskDefinition(_task.definition)) {
+			return undefined;
+		}
+
+		const definition = _task.definition;
+
 		if (this.taskMap.has(_task.name)) {
 			let task = this.taskMap.get(_task.name);
-			task!.definition = _task.definition;
+			task!.definition = definition;
 			return task;
-		} else {
-			const file: string = _task.definition.file;
-			if (file) {
-				const definition: FpcTaskDefinition = <any>_task.definition;
-				if (_task.definition.cwd) {
-					let rawCwd = _task.definition.cwd;
-					if (rawCwd.includes('${workspaceFolder}')) {
-						this.cwd = rawCwd.replace(/\$\{workspaceFolder\}/g, this.workspaceRoot);
-					} else if (path.isAbsolute(rawCwd)) {
-						this.cwd = rawCwd;
-					} else {
-						this.cwd = path.join(this.workspaceRoot, rawCwd);
-					}
-				}
-				let task = this.getTask(_task.name, definition.file, definition);
-				this.taskMap.set(_task.name, task);
-				return task;
+		}
+
+		if (definition.cwd) {
+			let rawCwd = definition.cwd;
+			if (rawCwd.includes('${workspaceFolder}')) {
+				this.cwd = rawCwd.replace(/\$\{workspaceFolder\}/g, this.workspaceRoot);
+			} else if (path.isAbsolute(rawCwd)) {
+				this.cwd = rawCwd;
+			} else {
+				this.cwd = path.join(this.workspaceRoot, rawCwd);
 			}
 		}
 
-		return undefined;
+		let task = this.getTask(_task.name, definition.file, definition);
+		this.taskMap.set(_task.name, task);
+		return task;
 	}
 
 	private async getTasks(): Promise<vscode.Task[]> {
@@ -121,13 +89,11 @@ export class LazarusTaskProvider implements vscode.TaskProvider {
 	}
 
 	public resolveTask(_task: vscode.Task): vscode.Task | undefined {
-		const project: string = _task.definition.project;
-		if (!project) {
+		if (!isLazarusTaskDefinition(_task.definition)) {
 			return undefined;
 		}
 
-		const definition: LazarusTaskDefinition = <any>_task.definition;
-		const task = this.getTask(_task.name, definition);
+		const task = this.getTask(_task.name, _task.definition);
 		this.taskMap.set(_task.name, task);
 		return task;
 	}
@@ -205,7 +171,7 @@ export class FpcTask extends vscode.Task {
 				let terminal: FpcBuildTaskTerminal | LazarusBuildTerminal;
 				
 				if (isLazarusProject) {
-					const buildMode = (taskDefinition as any).buildMode || name;
+					const buildMode = taskDefinition.buildMode || name;
 					terminal = new LazarusBuildTerminal(cwd, fpcpath!, taskDefinition?.lazarusProjectFile, buildMode);
 					(terminal as LazarusBuildTerminal).forceRebuild = this._BuildMode === BuildMode.rebuild;
 				} else {

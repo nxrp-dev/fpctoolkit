@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import *  as fs from 'fs';
 import * as path from 'path';
 import { configuration } from '../common/configuration';
-import { BuildOption, FpcTaskDefinition } from '../providers/task';
+import { BuildOption, FpcTaskDefinition } from '../providers/taskDefinitions';
 export class CompileOption {
     /**
      * Compile Option

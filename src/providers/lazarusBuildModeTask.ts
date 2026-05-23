@@ -3,7 +3,8 @@ import * as path from 'path';
 import { CompileOption } from '../languageServer/options';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
-import { LazarusTaskDefinition, lazarusTaskProvider } from './task';
+import { lazarusTaskProvider } from './task';
+import { LazarusTaskDefinition } from './taskDefinitions';
 
 export class LazarusBuildModeTask implements IProjectTask {
     public id?: string;
