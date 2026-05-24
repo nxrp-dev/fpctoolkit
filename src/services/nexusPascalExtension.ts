@@ -9,6 +9,9 @@ import { FpcTaskProvider, LazarusTaskProvider } from '../providers/task';
 import { DebugBuildService } from './debugBuildService';
 import { EditorIntegrationService } from './editorIntegrationService';
 import { ExtensionPaths } from './extensionPaths';
+import { PascalBuildTargetContextFactory } from './pascalBuildTargetContextFactory';
+import { PascalProjectModelService } from './pascalProjectModelService';
+import { PascalProjectTreeFactory } from './pascalProjectTreeFactory';
 import * as runtime from './runtime';
 
 export class NexusPascalExtension implements vscode.Disposable {
@@ -44,7 +47,16 @@ export class NexusPascalExtension implements vscode.Disposable {
         const extensionPaths = new ExtensionPaths(context);
         const taskProvider = new FpcTaskProvider(workspaceRoot);
         const lazarusTaskProvider = new LazarusTaskProvider(workspaceRoot);
-        const projectProvider = new FpcProjectProvider(workspaceRoot, context, taskProvider, lazarusTaskProvider);
+        const projectModelService = new PascalProjectModelService(workspaceRoot);
+        const buildTargetContextFactory = new PascalBuildTargetContextFactory(workspaceRoot);
+        const treeFactory = new PascalProjectTreeFactory(taskProvider, lazarusTaskProvider);
+        const projectProvider = new FpcProjectProvider(
+            workspaceRoot,
+            taskProvider,
+            projectModelService,
+            buildTargetContextFactory,
+            treeFactory
+        );
         const commandManager = new FpcCommandManager(workspaceRoot, taskProvider, lazarusTaskProvider, extensionPaths);
         const editorIntegrationService = new EditorIntegrationService(() => runtime.getClient(), logger);
         const debugBuildService = new DebugBuildService(projectProvider, logger);
