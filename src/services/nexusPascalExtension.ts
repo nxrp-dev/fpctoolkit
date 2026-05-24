@@ -5,7 +5,7 @@ import * as MyCodeAction from '../languageServer/codeaction';
 import { TLangClient } from '../languageServer/client';
 import { FpcProjectProvider } from '../providers/project';
 import { DefaultBuildModeStorage } from '../providers/defaultBuildModeStorage';
-import { FpcTaskProvider, LazarusTaskProvider } from '../providers/task';
+import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
 import { DebugBuildService } from './debugBuildService';
 import { EditorIntegrationService } from './editorIntegrationService';
 import { ExtensionPaths } from './extensionPaths';

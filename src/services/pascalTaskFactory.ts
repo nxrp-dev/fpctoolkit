@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { FpcBuildTarget, LazarusBuildTarget, PascalBuildTarget } from '../model/pascalProject';
-import { FpcTaskProvider, LazarusTaskProvider } from '../providers/task';
+import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
 import { FpcTaskDefinition, LazarusTaskDefinition } from '../providers/taskDefinitions';
 
 export class PascalTaskFactory {

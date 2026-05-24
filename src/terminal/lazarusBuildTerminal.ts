@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import * as ChildProcess from 'child_process';
 import * as path from 'path';
 import { TerminalEscape, TE_Style } from '../common/escape';
-import { LazarusCompiler, CompilerResult } from './lazarusCompiler';
-import { BaseBuildTerminal } from './baseBuildTerminal';
+import { LazarusCompiler, CompilerResult } from '../providers/lazarusCompiler';
+import { BaseBuildTerminal } from './buildTerminal';
 
 export class LazarusBuildTerminal extends BaseBuildTerminal {
     public projectFile: string = '';

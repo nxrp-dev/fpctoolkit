@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { FpcProjectProvider } from '../providers/project';
-import { FpcTaskProvider, LazarusTaskProvider } from '../providers/task';
+import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
 
 export class DebugBuildService implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];

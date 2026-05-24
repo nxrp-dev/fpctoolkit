@@ -6,7 +6,8 @@ import { getClient, getProjectProvider } from './services/runtime';
 import { FpcItem } from './providers/fpcItem';
 import { ProjectType } from './providers/projectType';
 import { ProjectTemplateManager } from './providers/projectTemplate';
-import { BuildMode, FpcTask, FpcTaskProvider, LazarusTask, LazarusTaskProvider } from './providers/task';
+import { BuildMode, FpcTask, LazarusTask } from './vscode/vscodeTask';
+import { FpcTaskProvider, LazarusTaskProvider } from './vscode/vscodeTaskProvider';
 import { ExtensionPaths } from './services/extensionPaths';
 
 const BUILD_LABELS = ['debug', 'release', 'Other ...'];

@@ -7,7 +7,7 @@ import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { PascalBuildTargetContextFactory } from '../services/pascalBuildTargetContextFactory';
 import { PascalProjectModelService } from '../services/pascalProjectModelService';
 import { PascalProjectTreeFactory } from '../services/pascalProjectTreeFactory';
-import { FpcTaskProvider } from './task';
+import { FpcTaskProvider } from '../vscode/vscodeTaskProvider';
 import { FpcItem } from './fpcItem';
 import { ProjectType } from './projectType';
 
