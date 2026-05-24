@@ -118,60 +118,62 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
     }
 
     protected findFile(filename: string): vscode.Uri | undefined {
-        // First, search in the current working directory
-        let f = path.join(this.cwd, filename);
-        if (fs.existsSync(f)) {
-            return vscode.Uri.file(f);
-        }
+        const candidates = this.getFileResolutionCandidates(filename);
 
-        // Then search in paths specified by -Fu arguments
-        for (const arg of this.args) {
-            if (arg.startsWith('-Fu')) {
-                let f2 = arg.substring(3);
-                if (f2.startsWith('.')) {
-                    f = path.join(this.cwd, f2, filename);
-                } else {
-                    f = path.join(f2, filename);
-                }
-                if (fs.existsSync(f)) {
-                    return vscode.Uri.file(f);
-                }
+        for (const candidate of candidates) {
+            if (fs.existsSync(candidate)) {
+                return vscode.Uri.file(candidate);
             }
-        }
-
-        // Finally, recursively search subdirectories (ignore directories starting with .)
-        const searchInDirectory = (dir: string): string | undefined => {
-            try {
-                const entries = fs.readdirSync(dir, { withFileTypes: true });
-                
-                for (const entry of entries) {
-                    // Skip directories starting with .
-                    if (entry.isDirectory() && entry.name.startsWith('.')) {
-                        continue;
-                    }
-
-                    if (entry.isDirectory()) {
-                        const fullPath = path.join(dir, entry.name);
-                        const result = searchInDirectory(fullPath);
-                        if (result) {
-                            return result;
-                        }
-                    } else if (entry.name === filename) {
-                        return path.join(dir, entry.name);
-                    }
-                }
-            } catch (error) {
-                // Ignore directories without read permission
-            }
-            return undefined;
-        };
-
-        const foundPath = searchInDirectory(this.cwd);
-        if (foundPath) {
-            return vscode.Uri.file(foundPath);
         }
 
         return undefined;
+    }
+
+    private getFileResolutionCandidates(filename: string): string[] {
+        const candidates: string[] = [];
+        const addCandidate = (candidate: string) => {
+            if (!candidates.includes(candidate)) {
+                candidates.push(candidate);
+            }
+        };
+
+        if (path.isAbsolute(filename)) {
+            addCandidate(filename);
+            return candidates;
+        }
+
+        addCandidate(path.join(this.cwd, filename));
+
+        if (this.currentFile) {
+            addCandidate(path.join(path.dirname(this.currentFile), filename));
+        }
+
+        for (const searchRoot of this.getCompilerSearchRoots()) {
+            addCandidate(path.join(searchRoot, filename));
+        }
+
+        return candidates;
+    }
+
+    private getCompilerSearchRoots(): string[] {
+        const roots: string[] = [];
+        const addRoot = (root: string) => {
+            const resolvedRoot = path.isAbsolute(root) ? root : path.join(this.cwd, root);
+            if (!roots.includes(resolvedRoot)) {
+                roots.push(resolvedRoot);
+            }
+        };
+
+        for (const arg of this.args) {
+            if (arg.startsWith('-Fu') || arg.startsWith('-Fi')) {
+                const rawRoot = arg.substring(3).trim();
+                if (rawRoot) {
+                    addRoot(rawRoot);
+                }
+            }
+        }
+
+        return roots;
     }
 
     protected parseFpcStyleError(line: string): boolean {
