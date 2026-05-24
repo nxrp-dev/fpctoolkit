@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CompileOption } from '../languageServer/options';
+import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
 
@@ -14,6 +15,22 @@ export class FpcTask implements IProjectTask {
 
     getCompileOption(workspaceRoot: string): CompileOption {
         return new CompileOption(this.taskDefinition, workspaceRoot);
+    }
+
+    getLanguageServerContext(workspaceRoot: string): LanguageServerProjectContext {
+        const option = this.getCompileOption(workspaceRoot);
+        const fpcOptions = option.toOptionString()
+            .split(' ')
+            .filter(value => value.length > 0 && !value.startsWith('-v'));
+
+        return {
+            kind: 'fpc',
+            label: this.label,
+            projectFile: option.file,
+            workingDirectory: option.cwd,
+            fpcOptions,
+            allowFpcGlobalUnitPaths: true
+        };
     }
 
     getTreeItem(): vscode.TreeItem {

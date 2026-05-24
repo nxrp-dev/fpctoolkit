@@ -193,8 +193,8 @@ async function checkAndBuildBeforeDebug(): Promise<void> {
         }
 
         // Check if auto-build feature is enabled
-        const config = vscode.workspace.getConfiguration('nexusPascal');
-        const autoBuildEnabled = config.get<boolean>('debug.autoBuild', true);
+        const config = vscode.workspace.getConfiguration('nexusPascal.debug');
+        const autoBuildEnabled = config.get<boolean>('autoBuildBeforeLaunch', true);
 
         if (!autoBuildEnabled) {
             logger.appendLine('Debug pre-check: Auto-build feature is disabled');
@@ -437,7 +437,8 @@ function onDidChangeVisibleTextEditors(editors: readonly vscode.TextEditor[]): v
     // Process delayed didOpen for any visible editors we haven't seen before
     editors.forEach(editor => {
         if ((editor.document.uri.scheme === "file") && (editor.document.languageId === "objectpascal" || editor.document.languageId === "pascal")) {
-            editor.options.tabSize = configuration.get<number>('format.tabsize', 2);
+            logger.appendLine(`Visible Pascal editor: ${editor.document.languageId} ${editor.document.uri.fsPath}`);
+            editor.options.tabSize = configuration.get<number>('format.tabSize', 2);
             client.onDidChangeVisibleTextEditor(editor);
         }
     });

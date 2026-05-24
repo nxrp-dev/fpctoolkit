@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CompileOption } from '../languageServer/options';
+import { LanguageServerProjectContext } from '../languageServer/projectContext';
 
 
 /**
@@ -14,6 +15,7 @@ export interface IProjectTask {
     // Methods
     getTask(): Promise<vscode.Task> | vscode.Task;
     getCompileOption(workspaceRoot: string): CompileOption;  // Get compile options for this project
+    getLanguageServerContext(workspaceRoot: string): LanguageServerProjectContext;
     getTreeItem(): vscode.TreeItem;                          // Get tree item for display in TreeDataProvider
     setAsDefault(): Promise<void> | void;
 }

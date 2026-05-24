@@ -18,7 +18,7 @@ const COMMANDS = {
     add: 'nexusPascal.project.add',
     setDefault: 'nexusPascal.project.setdefault',
     openWithLazarus: 'nexusPascal.project.openWithLazarus',
-    selectFpcSourceDirectory: 'nexusPascal.languageServer.selectFPCSourceDirectory',
+    selectFpcSourceDirectory: 'nexusPascal.languageServer.selectFpcSourceDirectory',
     completeCode: 'nexusPascal.code.complete'
 };
 
@@ -123,7 +123,7 @@ export class FpcCommandManager {
 
     private selectFpcSourceDirectory = async (): Promise<void> => {
         const config = vscode.workspace.getConfiguration('nexusPascal.languageServer');
-        const currentPath = config.get<string>('FPCSourceDirectory');
+        const currentPath = config.get<string>('fpcSourceDirectory');
         const defaultUri = currentPath && fs.existsSync(currentPath)
             ? vscode.Uri.file(currentPath)
             : undefined;
@@ -141,8 +141,8 @@ export class FpcCommandManager {
             return;
         }
 
-        await config.update('FPCSourceDirectory', selectedFolder.fsPath, vscode.ConfigurationTarget.Global);
-        await vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.FPCSourceDirectory');
+        await config.update('fpcSourceDirectory', selectedFolder.fsPath, vscode.ConfigurationTarget.Global);
+        await vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.fpcSourceDirectory');
     };
 
     private projectNew = async (): Promise<void> => {

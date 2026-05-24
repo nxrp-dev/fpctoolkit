@@ -2,6 +2,7 @@ import internal = require('stream');
 import * as vscode from 'vscode';
 import *  as fs from 'fs';
 import * as path from 'path';
+import { LanguageServerProjectContext } from './projectContext';
 import { configuration } from '../common/configuration';
 import { BuildOption, FpcTaskDefinition } from '../providers/taskDefinitions';
 export class CompileOption {
@@ -168,7 +169,7 @@ export class InitializationOptions {
     public clientProfileEnableFeatures: Array<string> = ['nullDocumentVersion'];
 
     constructor() {
-        let cfg = vscode.workspace.getConfiguration('nexusPascal.lsp.initializationOptions');
+        let cfg = vscode.workspace.getConfiguration('nexusPascal.languageServer.initializationOptions');
         this.program = cfg.get<string>('program');
         this.maximumCompletions = cfg.get<number>('maximumCompletions', 100);
         this.fpcOptions = cfg.get<Array<string>>("fpcOptions", []);
@@ -201,5 +202,16 @@ export class InitializationOptions {
             }
         });
 
+    }
+
+    public updateByProjectContext(context: LanguageServerProjectContext) {
+        this.cwd = context.workingDirectory;
+        this.program = context.projectFile;
+
+        for (const option of context.fpcOptions) {
+            if (option && !this.fpcOptions.includes(option)) {
+                this.fpcOptions.push(option);
+            }
+        }
     }
 }

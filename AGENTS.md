@@ -32,6 +32,7 @@ This file defines how Codex should work in this repository.
 
 - Keep removals clean. Do not leave compatibility shims unless explicitly requested.
 - Avoid broad refactors while removing one feature. Remove the requested feature and adjacent dead code only.
+- Opportunistic refactoring is allowed in this codebase, but Codex must tell the user what was refactored and why.
 - Prefer structured, named settings over raw string escape hatches.
 - Avoid user-configured filesystem deletion behavior.
 - Do not reintroduce:
@@ -65,6 +66,11 @@ This file defines how Codex should work in this repository.
 - Some sessions may still have `apply_patch` rooted at the old `C:\gitdev\tools\fpctoolkit` path.
 - If needed, it is acceptable to create a temporary `fpctoolkit` junction to `nexus-pascal` for patching, then remove it afterward.
 - That junction is tooling scaffolding only. It is not part of the repo.
+
+## Analysis Scope
+
+- For Nexus Pascal work, keep analysis limited to `src` and `package.json` by default.
+- Only inspect files outside `src` and `package.json` when necessary to follow behavior referenced by those sources.
 
 ## Verification
 

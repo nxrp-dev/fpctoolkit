@@ -25,16 +25,14 @@ import {
     ErrorAction,
     CloseHandlerResult,
     CloseAction,
-    Trace,
     StreamInfo} from 'vscode-languageclient/node';
 import * as net from 'net';
 
 import { FpcProjectProvider } from '../providers/project';
 import * as util from '../common/util';
-import { CompileOption, InitializationOptions } from "./options";
+import { InitializationOptions } from "./options";
 import { env } from 'process';
 import { client, logger } from '../extension';
-import { ClientRequest } from 'http';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 
@@ -76,36 +74,28 @@ interface SetSelectionParams {
 }
 const SetSelectionNotification: NotificationType<SetSelectionParams> = new NotificationType<SetSelectionParams>('pasls/setSelection');
 
-function getLazarusConfigPath(): string | undefined {
-    const plat = process.platform;
-    if (plat === 'win32') {
-        const appData = process.env.APPDATA;
-        if (appData) {
-            return path.join(appData, 'lazarus', 'environmentoptions.xml');
-        }
-    } else {
-        const home = process.env.HOME;
-        if (home) {
-            return path.join(home, '.lazarus', 'environmentoptions.xml');
-        }
-    }
-    return undefined;
-}
-
 function GetEnvironmentVariables(): { [key: string]: string | undefined } {
-    // load environment variables from settings which are used for CodeTools
-    const plat = process.platform;
     let userEnvironmentVariables: { [key: string]: string | undefined } = {};
-    let keys: string[] = ['PP', 'LAZARUSDIR', 'FPCTARGET', 'FPCTARGETCPU'];
-    let settingEnvironmentVariables = workspace.getConfiguration('nexusPascal.env');
-    keys.forEach(key => {
-        const val = settingEnvironmentVariables.get<string>(key);
-        if (val) {
-            userEnvironmentVariables[key] = val;
-        }
-    });
+    const toolchainConfig = workspace.getConfiguration('nexusPascal.toolchain');
+    const compilerPath = toolchainConfig.get<string>('compilerPath');
+    const lazarusDirectory = toolchainConfig.get<string>('lazarusDirectory');
+    const targetOS = toolchainConfig.get<string>('targetOS');
+    const targetCPU = toolchainConfig.get<string>('targetCPU');
     const languageServerConfig = workspace.getConfiguration('nexusPascal.languageServer');
-    const fpcSourceDirectory = languageServerConfig.get<string>('FPCSourceDirectory');
+    const fpcSourceDirectory = languageServerConfig.get<string>('fpcSourceDirectory');
+
+    if (compilerPath) {
+        userEnvironmentVariables['PP'] = compilerPath;
+    }
+    if (lazarusDirectory) {
+        userEnvironmentVariables['LAZARUSDIR'] = lazarusDirectory;
+    }
+    if (targetOS) {
+        userEnvironmentVariables['FPCTARGET'] = targetOS;
+    }
+    if (targetCPU) {
+        userEnvironmentVariables['FPCTARGETCPU'] = targetCPU;
+    }
     if (fpcSourceDirectory) {
         userEnvironmentVariables['FPCDIR'] = fpcSourceDirectory;
     }
@@ -143,9 +133,56 @@ async function getGlobalUnitPaths(ppPath: string, targetOS?: string, targetCPU?:
     });
 }
 
-interface myConfiguration extends vscode.WorkspaceConfiguration {
-    cwd: string;
+function getFpcSourceIncludeOptions(fpcSourceDirectory: string | undefined): string[] {
+    if (!fpcSourceDirectory) {
+        return [];
+    }
+
+    const includeDirectories = [
+        path.join(fpcSourceDirectory, 'rtl', 'inc'),
+        path.join(fpcSourceDirectory, 'rtl', 'objpas', 'classes'),
+        path.join(fpcSourceDirectory, 'rtl', 'objpas', 'sysutils')
+    ];
+
+    return includeDirectories
+        .filter(directory => fs.existsSync(directory) && fs.lstatSync(directory).isDirectory())
+        .map(directory => `-Fi${directory}`);
 }
+
+function normalizePathForCompare(value: string): string {
+    return path.normalize(value).toLowerCase();
+}
+
+function getMessagePath(message: string): string | undefined {
+    const locationMatch = message.match(/([A-Za-z]:\\[^()]+)\(\d+,\d+\)/);
+    if (locationMatch?.[1]) {
+        return locationMatch[1];
+    }
+
+    const quotedMessageMatch = message.match(/^([A-Za-z]:\\[^:]+):\s+"/);
+    return quotedMessageMatch?.[1];
+}
+
+function isFpcSourceDiagnosticMessage(message: string): boolean {
+    const fpcSourceDirectory = vscode.workspace
+        .getConfiguration('nexusPascal.languageServer')
+        .get<string>('fpcSourceDirectory');
+    if (!fpcSourceDirectory) {
+        return false;
+    }
+
+    const messagePath = getMessagePath(message);
+    if (!messagePath) {
+        return false;
+    }
+
+    const normalizedMessagePath = normalizePathForCompare(messagePath);
+    const normalizedFpcSourceDirectory = normalizePathForCompare(fpcSourceDirectory);
+
+    return normalizedMessagePath === normalizedFpcSourceDirectory
+        || normalizedMessagePath.startsWith(normalizedFpcSourceDirectory + path.sep);
+}
+
 export class TLangClient implements ErrorHandler  {
     private client: LanguageClient | undefined;
     private targetOS?: string;
@@ -181,7 +218,7 @@ export class TLangClient implements ErrorHandler  {
 
     private getLanguageServerFileName(): string {
         let extensionProcessName: string = 'pasls';
-        let paslspath=vscode.workspace.getConfiguration('nexusPascal.pasls').get<string>('path');
+        let paslspath = vscode.workspace.getConfiguration('nexusPascal.languageServer').get<string>('executablePath');
       
 
         const plat: NodeJS.Platform = process.platform;
@@ -248,6 +285,10 @@ export class TLangClient implements ErrorHandler  {
                     let msg = e.message;
                     if(msg.startsWith('⚠️')){
                         msg=msg.substring(2).trim();
+                    }
+                    if (isFpcSourceDiagnosticMessage(msg)) {
+                        logger.appendLine(`Suppressed FPC source diagnostic: ${msg}`);
+                        return;
                     }
                     if (msg.includes('@') && msg.includes(':')) {
                         // Format: '... file: "..." @ line:col;'
@@ -411,9 +452,9 @@ export class TLangClient implements ErrorHandler  {
                 openSettings
             ).then(selection => {
                 if (selection === selectFolder) {
-                    vscode.commands.executeCommand('nexusPascal.languageServer.selectFPCSourceDirectory');
+                    vscode.commands.executeCommand('nexusPascal.languageServer.selectFpcSourceDirectory');
                 } else if (selection === openSettings) {
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.FPCSourceDirectory');
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'nexusPascal.languageServer.fpcSourceDirectory');
                 }
             });
             return;
@@ -436,7 +477,10 @@ export class TLangClient implements ErrorHandler  {
                 command: executable,
                 //args: ["-l","log.txt"],
                 options: {
-                    env: envVars
+                    env: {
+                        ...process.env,
+                        ...envVars
+                    }
                 }
             };
             serverOptions = {
@@ -447,28 +491,35 @@ export class TLangClient implements ErrorHandler  {
 
         var initializationOptions = new InitializationOptions();
 
-        let opt = await this.projProvider.GetDefaultTaskOption();
-        if (opt != undefined) {
-            initializationOptions.updateByCompileOption(opt);
-        } else {
-            opt = new CompileOption();
-            opt.buildOption!.targetCPU = this.targetCPU;
-            opt.buildOption!.targetOS = this.targetOS;
-        }
+        const projectContext = await this.projProvider.getDefaultLanguageServerContext();
+        initializationOptions.updateByProjectContext(projectContext);
+        logger.appendLine(`Language server project context: ${projectContext.kind} ${projectContext.projectFile}`);
 
-        // Get global unit paths
-        const globalUnitPaths = await getGlobalUnitPaths(
-            envVars['PP'] || 'fpc',
-            opt.buildOption?.targetOS || this.targetOS,
-            opt.buildOption?.targetCPU || this.targetCPU,
-            opt.cwd
-        );
-        globalUnitPaths.forEach(p => {
-            const fu = `-Fu${p}`;
-            if (!initializationOptions.fpcOptions.includes(fu)) {
-                initializationOptions.fpcOptions.push(fu);
+        const fpcSourceIncludeOptions = getFpcSourceIncludeOptions(envVars['FPCDIR']);
+        for (const includeOption of fpcSourceIncludeOptions) {
+            if (!initializationOptions.fpcOptions.includes(includeOption)) {
+                initializationOptions.fpcOptions.push(includeOption);
             }
-        });
+        }
+        logger.appendLine(`Added ${fpcSourceIncludeOptions.length} FPC source include paths to language server context`);
+
+        if (projectContext.allowFpcGlobalUnitPaths) {
+            const globalUnitPaths = await getGlobalUnitPaths(
+                envVars['PP'] || 'fpc',
+                this.targetOS,
+                this.targetCPU,
+                projectContext.workingDirectory
+            );
+            globalUnitPaths.forEach(p => {
+                const fu = `-Fu${p}`;
+                if (!initializationOptions.fpcOptions.includes(fu)) {
+                    initializationOptions.fpcOptions.push(fu);
+                }
+            });
+            logger.appendLine(`Added ${globalUnitPaths.length} FPC global unit paths to language server context`);
+        } else {
+            logger.appendLine('Skipped FPC global unit paths for Lazarus language server context');
+        }
 
         // client extensions configure their server
         let clientOptions: LanguageClientOptions = {
@@ -477,11 +528,14 @@ export class TLangClient implements ErrorHandler  {
             // workspaceFolder: folder,
             documentSelector: [
                 { scheme: 'file', language: 'objectpascal' },
-                { scheme: 'untitled', language: 'objectpascal' }
+                { scheme: 'untitled', language: 'objectpascal' },
+                { scheme: 'file', language: 'pascal' },
+                { scheme: 'untitled', language: 'pascal' }
             ]
         }
 
-        this.client = new LanguageClient('nexusPascal.lsp', 'Free Pascal Language Server', serverOptions, clientOptions);
+        logger.appendLine('Language server document selector: objectpascal, pascal');
+        this.client = new LanguageClient('nexusPascal.languageServer', 'Free Pascal Language Server', serverOptions, clientOptions);
     };
 
     /**

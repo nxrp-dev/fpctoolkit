@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CompileOption } from '../languageServer/options';
+import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { taskProvider } from './task';
 import { clearTimeout } from 'timers';
 import { LazarusProject } from './lazarus';
@@ -332,6 +333,34 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         return lOption;
     }
 
+    public async getDefaultLanguageServerContext(): Promise<LanguageServerProjectContext> {
+        const lTreeTask = this.defaultFpcItem?.projectTask;
+        if (lTreeTask) {
+            return lTreeTask.getLanguageServerContext(this.workspaceRoot);
+        }
+
+        const lConfig = vscode.workspace.getConfiguration('tasks', vscode.Uri.file(this.workspaceRoot));
+        let lFallbackTask: any | undefined;
+
+        for (const lTaskDefinition of lConfig.get<any[]>('tasks') || []) {
+            if (lTaskDefinition.type !== 'fpc' && lTaskDefinition.type !== 'lazarus') {
+                continue;
+            }
+
+            if (!lFallbackTask) {
+                lFallbackTask = lTaskDefinition;
+            }
+
+            if (lTaskDefinition.group?.isDefault) {
+                return this.createLanguageServerContextFromTaskDefinition(lTaskDefinition);
+            }
+        }
+
+        return lFallbackTask
+            ? this.createLanguageServerContextFromTaskDefinition(lFallbackTask)
+            : this.createLanguageServerContextFromCompileOption(new CompileOption());
+    }
+
     private createCompileOptionFromTaskDefinition(ATaskDefinition: any): CompileOption {
         if (ATaskDefinition.type === 'lazarus') {
             const lCwd = this.resolveWorkspacePath(ATaskDefinition.cwd);
@@ -347,5 +376,39 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 
         const lDefinition = taskProvider.GetTaskDefinition(ATaskDefinition.label) || ATaskDefinition;
         return new CompileOption(lDefinition, this.workspaceRoot);
+    }
+
+    private createLanguageServerContextFromTaskDefinition(ATaskDefinition: any): LanguageServerProjectContext {
+        if (ATaskDefinition.type === 'lazarus') {
+            const lCwd = this.resolveWorkspacePath(ATaskDefinition.cwd);
+            const lProjectFile = this.resolveWorkspacePath(ATaskDefinition.project, lCwd);
+
+            return {
+                kind: 'lazarus',
+                label: ATaskDefinition.label || path.basename(lProjectFile),
+                projectFile: lProjectFile,
+                workingDirectory: path.dirname(lProjectFile),
+                buildMode: ATaskDefinition.buildMode,
+                fpcOptions: [],
+                allowFpcGlobalUnitPaths: false
+            };
+        }
+
+        return this.createLanguageServerContextFromCompileOption(this.createCompileOptionFromTaskDefinition(ATaskDefinition));
+    }
+
+    private createLanguageServerContextFromCompileOption(AOption: CompileOption): LanguageServerProjectContext {
+        const lFpcOptions = AOption.toOptionString()
+            .split(' ')
+            .filter(AValue => AValue.length > 0 && !AValue.startsWith('-v'));
+
+        return {
+            kind: 'fpc',
+            label: AOption.label,
+            projectFile: AOption.file,
+            workingDirectory: AOption.cwd,
+            fpcOptions: lFpcOptions,
+            allowFpcGlobalUnitPaths: true
+        };
     }
 }

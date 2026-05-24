@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CompileOption } from '../languageServer/options';
+import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
 import { lazarusTaskProvider } from './task';
@@ -58,6 +59,20 @@ export class LazarusBuildModeTask implements IProjectTask {
             : AWorkspaceRoot;
         lOption.buildOption = undefined;
         return lOption;
+    }
+
+    public getLanguageServerContext(AWorkspaceRoot: string): LanguageServerProjectContext {
+        const lOption = this.getCompileOption(AWorkspaceRoot);
+
+        return {
+            kind: 'lazarus',
+            label: this.label,
+            projectFile: lOption.file,
+            workingDirectory: lOption.cwd,
+            buildMode: this.buildMode,
+            fpcOptions: [],
+            allowFpcGlobalUnitPaths: false
+        };
     }
 
     public getTreeItem(): vscode.TreeItem {

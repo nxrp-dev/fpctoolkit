@@ -32,7 +32,7 @@ export class JediFormatter {
     }
 
     getCfgConfig(): string {
-        let cfg = configuration.get<string>("format.cfgpath", "");
+        let cfg = configuration.get<string>("format.configPath", "");
         if (cfg == "") {
             cfg = this.default_cfg;
         }

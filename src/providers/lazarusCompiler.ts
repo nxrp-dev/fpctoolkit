@@ -65,7 +65,7 @@ export class LazarusCompiler {
         }
 
         // Check LAZARUSDIR environment variable
-        const lazarusDir = process.env.LAZARUSDIR || vscode.workspace.getConfiguration('nexusPascal').get<string>('env.LAZARUSDIR');
+        const lazarusDir = process.env.LAZARUSDIR || vscode.workspace.getConfiguration('nexusPascal.toolchain').get<string>('lazarusDirectory');
         if (lazarusDir) {
             const lazBuildPath = path.join(lazarusDir, process.platform === 'win32' ? 'lazbuild.exe' : 'lazbuild');
             try {
