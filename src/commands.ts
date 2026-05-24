@@ -9,6 +9,8 @@ import { ProjectTemplateManager } from './providers/projectTemplate';
 import { BuildMode, FpcTask, LazarusTask } from './vscode/vscodeTask';
 import { FpcTaskProvider, LazarusTaskProvider } from './vscode/vscodeTaskProvider';
 import { ExtensionPaths } from './services/extensionPaths';
+import { PascalProjectModelService } from './services/pascalProjectModelService';
+import { PascalTaskFactory } from './services/pascalTaskFactory';
 
 const BUILD_LABELS = ['debug', 'release', 'Other ...'];
 const COMMANDS = {
@@ -32,7 +34,9 @@ export class FpcCommandManager {
         private readonly workspaceRoot: string,
         private readonly taskProvider: FpcTaskProvider,
         private readonly lazarusTaskProvider: LazarusTaskProvider,
-        extensionPaths: ExtensionPaths
+        extensionPaths: ExtensionPaths,
+        private readonly projectModelService: PascalProjectModelService,
+        private readonly taskFactory: PascalTaskFactory
     ) {
         this.templateManager = new ProjectTemplateManager(workspaceRoot, extensionPaths);
     }
@@ -171,11 +175,11 @@ export class FpcCommandManager {
     };
 
     private projectSetDefault = async (node?: FpcItem): Promise<void> => {
-        if (!node || node.level !== 1 || !node.projectTask) {
+        if (!node || node.level !== 1 || !node.target) {
             return;
         }
 
-        await node.projectTask.setAsDefault();
+        await this.projectModelService.setDefaultTarget(node.target);
         await this.refreshProjectExplorer();
         await this.restartLanguageServer();
     };
@@ -208,13 +212,12 @@ export class FpcCommandManager {
             return;
         }
 
-        const projectTask = node.projectTask;
-        if (!projectTask) {
+        if (!node.target) {
             vscode.window.showErrorMessage('Invalid project task.');
             return;
         }
 
-        const task = await projectTask.getTask();
+        const task = this.taskFactory.createTask(node.target);
         if (rebuild) {
             this.setTaskBuildMode(task, BuildMode.rebuild);
         }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { clearTimeout } from 'timers';
 import { CompileOption } from '../languageServer/options';
-import { PascalProject } from '../model/pascalProject';
+import { PascalBuildTarget, PascalProject } from '../model/pascalProject';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { PascalBuildTargetContextFactory } from '../services/pascalBuildTargetContextFactory';
 import { PascalProjectModelService } from '../services/pascalProjectModelService';
@@ -66,7 +66,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         }
 
         const projects = this.getFilteredProjects();
-        const defaultTarget = this.projectModelService.getDefaultTarget(projects);
+        const defaultTarget = await this.ensureDefaultTarget(projects);
         if (!defaultTarget) {
             return undefined;
         }
@@ -78,6 +78,10 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 
         this.defaultFpcItem = this.treeFactory.createTargetItem(project, defaultTarget);
         return this.defaultFpcItem;
+    }
+
+    public async ensureDefaultTarget(projects: PascalProject[] = this.getFilteredProjects()): Promise<PascalBuildTarget | undefined> {
+        return this.projectModelService.getDefaultTarget(projects);
     }
 
     public dispose(): void {
@@ -111,16 +115,17 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 
     public async getChildren(element?: FpcItem): Promise<FpcItem[]> {
         if (element) {
-            const items = (element.project?.tasks || []).map(task => {
+            const items = (element.project?.targets || []).map(target => {
                 const item = new FpcItem(
                     1,
-                    task.label,
+                    target.label,
                     vscode.TreeItemCollapsibleState.None,
                     element.file,
                     element.fileexist,
-                    task.isDefault,
+                    target.isDefault,
                     element.projectType,
-                    task
+                    element.project,
+                    target
                 );
 
                 if (item.isDefault) {

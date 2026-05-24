@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { LazarusProject } from '../providers/lazarus';
+import { readLazarusBuildModes } from '../providers/lazarus';
 import {
     FpcBuildTarget,
     FpcProjectModel,
@@ -45,6 +45,15 @@ export class PascalProjectModelService {
         return projects[0]?.targets[0];
     }
 
+    public async setDefaultTarget(target: PascalBuildTarget): Promise<void> {
+        if (target.kind === 'lazarus') {
+            await this.setDefaultLazarusTarget(target);
+            return;
+        }
+
+        await this.setDefaultFpcTarget(target);
+    }
+
     private getConfiguredTasks(): any[] {
         return vscode.workspace
             .getConfiguration('tasks', vscode.Uri.file(this.workspaceRoot))
@@ -67,7 +76,7 @@ export class PascalProjectModelService {
             label,
             projectId: project.id,
             projectFile,
-            isDefault: this.isDefaultLazarusTarget(projectFile, label) || taskDefinition.group?.isDefault === true,
+            isDefault: taskDefinition.group?.isDefault === true,
             isInProjectFile: false,
             taskDefinition
         });
@@ -97,7 +106,7 @@ export class PascalProjectModelService {
             taskDefinition
         });
 
-        for (const mode of LazarusProject.readBuildModes(projectFile)) {
+        for (const mode of readLazarusBuildModes(projectFile)) {
             this.addLazarusTarget(project, {
                 id: this.createTargetId(projectFile, mode.name, mode.name),
                 kind: 'lazarus',
@@ -198,6 +207,80 @@ export class PascalProjectModelService {
 
     private isDefaultLazarusTarget(projectFile: string, label: string): boolean {
         return DefaultBuildModeStorage.getInstance().isDefaultBuildMode(`${projectFile}-${label}`);
+    }
+
+    private async setDefaultFpcTarget(target: FpcBuildTarget): Promise<void> {
+        DefaultBuildModeStorage.getInstance().setDefaultBuildMode('');
+
+        const tasks = this.getConfiguredTasks();
+        let tasksUpdated = false;
+
+        for (const task of tasks) {
+            const taskType = String(task?.type).toLowerCase();
+            if (taskType !== 'fpc' && taskType !== 'lazarus') {
+                continue;
+            }
+
+            const isTargetTask = taskType === 'fpc'
+                && task.label === target.label
+                && this.resolveWorkspacePath(task.file, this.resolveWorkspacePath(task.cwd)) === target.projectFile;
+            if (!task.group && !isTargetTask) {
+                continue;
+            }
+            if (!task.group) {
+                task.group = { kind: 'build' };
+            }
+
+            const desiredDefault = isTargetTask ? true : undefined;
+            if (task.group.isDefault !== desiredDefault) {
+                task.group.isDefault = desiredDefault;
+                tasksUpdated = true;
+            }
+        }
+
+        if (tasksUpdated) {
+            await this.updateConfiguredTasks(tasks);
+        }
+    }
+
+    private async setDefaultLazarusTarget(target: LazarusBuildTarget): Promise<void> {
+        DefaultBuildModeStorage.getInstance().setDefaultBuildMode(`${target.projectFile}-${target.label}`);
+
+        const tasks = this.getConfiguredTasks();
+        let tasksUpdated = false;
+
+        for (const task of tasks) {
+            const taskType = String(task?.type).toLowerCase();
+            if (taskType !== 'fpc' && taskType !== 'lazarus') {
+                continue;
+            }
+
+            const isTargetTask = taskType === 'lazarus'
+                && task.label === target.label
+                && this.resolveWorkspacePath(task.project, this.resolveWorkspacePath(task.cwd)) === target.projectFile;
+
+            if (!task.group && !isTargetTask) {
+                continue;
+            }
+            if (!task.group) {
+                task.group = { kind: 'build' };
+            }
+
+            if (typeof task.group === 'object' && task.group.isDefault !== (isTargetTask || undefined)) {
+                task.group.isDefault = isTargetTask || undefined;
+                tasksUpdated = true;
+            }
+        }
+
+        if (tasksUpdated) {
+            await this.updateConfiguredTasks(tasks);
+        }
+    }
+
+    private async updateConfiguredTasks(tasks: any[]): Promise<void> {
+        await vscode.workspace
+            .getConfiguration('tasks', vscode.Uri.file(this.workspaceRoot))
+            .update('tasks', tasks, vscode.ConfigurationTarget.WorkspaceFolder);
     }
 
     private createTargetId(projectFile: string, label: string, buildMode?: string): string {

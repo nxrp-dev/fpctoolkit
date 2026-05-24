@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
 import { FpcProjectProvider } from '../providers/project';
 import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
+import { PascalTaskFactory } from './pascalTaskFactory';
 
 export class DebugBuildService implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
 
     public constructor(
         private readonly projectProvider: FpcProjectProvider,
-        private readonly logger: vscode.OutputChannel
+        private readonly logger: vscode.OutputChannel,
+        private readonly taskFactory: PascalTaskFactory
     ) {}
 
     public register(): void {
@@ -125,9 +127,9 @@ export class DebugBuildService implements vscode.Disposable {
 
         this.logger.appendLine('Debug pre-check: Source file changes detected, compilation needed');
 
-        let defaultFpcItem = await this.projectProvider.ensureDefaultFpcItem();
+        let defaultTarget = await this.projectProvider.ensureDefaultTarget();
 
-        if (!defaultFpcItem) {
+        if (!defaultTarget) {
             await new Promise<void>((resolve) => {
                 const disposable = this.projectProvider.onDidChangeTreeData(() => {
                     disposable.dispose();
@@ -136,19 +138,14 @@ export class DebugBuildService implements vscode.Disposable {
                 this.projectProvider.refresh();
             });
 
-            defaultFpcItem = await this.projectProvider.ensureDefaultFpcItem();
-            if (!defaultFpcItem) {
+            defaultTarget = await this.projectProvider.ensureDefaultTarget();
+            if (!defaultTarget) {
                 this.logger.appendLine('Debug pre-check: No default project found');
                 return;
             }
         }
 
-        const defaultTask = await defaultFpcItem.projectTask?.getTask();
-
-        if (!defaultTask) {
-            this.logger.appendLine('Debug pre-check: No suitable task found for compilation');
-            return;
-        }
+        const defaultTask = this.taskFactory.createTask(defaultTarget);
 
         this.logger.appendLine('Debug auto-compilation: File changes detected, starting compilation');
         const execution = await vscode.tasks.executeTask(defaultTask);

@@ -1,12 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { PascalBuildTarget, PascalProject } from '../model/pascalProject';
 import { ProjectType } from './projectType';
-import { IProjectIntf, IProjectTask } from './projectIntf';
 
 export class FpcItem extends vscode.TreeItem {
-    public project?: IProjectIntf;
-    public projectTask?: IProjectTask;
-
     constructor(
         public readonly level: number,
         public readonly label: string,
@@ -15,21 +12,10 @@ export class FpcItem extends vscode.TreeItem {
         public fileexist: boolean,
         public isDefault: boolean,
         public projectType: ProjectType = ProjectType.FPC,
-        projectIntfOrTask?: IProjectIntf | IProjectTask  // Can be either a project interface (level=0) or a task (level=1)
+        public readonly project?: PascalProject,
+        public readonly target?: PascalBuildTarget
     ) {
-        let displayLabel = label;
-        if (level === 0) {
-            displayLabel = label;
-        }
-
-        super(displayLabel, collapsibleState);
-
-        if (level === 0 && projectIntfOrTask && 'tasks' in projectIntfOrTask) {
-            this.project = projectIntfOrTask as IProjectIntf;
-        } else if (level === 1 && projectIntfOrTask && 'project' in projectIntfOrTask) {
-            this.projectTask = projectIntfOrTask as IProjectTask;
-            this.project = this.projectTask.project;
-        }
+        super(label, collapsibleState);
 
         if (level === 0) {
             this.contextValue = projectType === ProjectType.Lazarus ? 'lazarusproject' : 'fpcproject';

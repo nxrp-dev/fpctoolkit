@@ -1,64 +1,47 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
-import { IProjectIntf, IProjectTask } from './projectIntf';
 
 export interface LazarusBuildModeInfo {
     name: string;
     isDefault: boolean;
 }
 
-export class LazarusProject implements IProjectIntf {
-    public label: string;
-    public file: string;
-    public tasks: IProjectTask[] = [];
-
-    public constructor(label: string, file: string) {
-        this.label = label;
-        this.file = file;
+export function readLazarusBuildModes(file: string): LazarusBuildModeInfo[] {
+    if (!fs.existsSync(file) || path.extname(file).toLowerCase() !== '.lpi') {
+        return [];
     }
 
-    public static fromFile(AFile: string): LazarusProject {
-        const lName = path.basename(AFile, path.extname(AFile));
-        return new LazarusProject(lName, AFile);
+    const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: ''
+    });
+
+    const content = fs.readFileSync(file, 'utf8');
+    const document = parser.parse(content);
+    const items = asArray(document?.CONFIG?.ProjectOptions?.BuildModes?.Item);
+
+    return items
+        .map((item: any) => readBuildMode(item))
+        .filter((mode: LazarusBuildModeInfo | undefined): mode is LazarusBuildModeInfo => mode !== undefined);
+}
+
+function readBuildMode(item: any): LazarusBuildModeInfo | undefined {
+    const name = typeof item?.Name === 'string' ? item.Name.trim() : '';
+    if (!name) {
+        return undefined;
     }
 
-    public static readBuildModes(AFile: string): LazarusBuildModeInfo[] {
-        if (!fs.existsSync(AFile) || path.extname(AFile).toLowerCase() !== '.lpi') {
-            return [];
-        }
+    return {
+        name,
+        isDefault: String(item.Default || '').toLowerCase() === 'true'
+    };
+}
 
-        const lParser = new XMLParser({
-            ignoreAttributes: false,
-            attributeNamePrefix: ''
-        });
-
-        const lContent = fs.readFileSync(AFile, 'utf8');
-        const lDocument = lParser.parse(lContent);
-        const lItems = LazarusProject.asArray(lDocument?.CONFIG?.ProjectOptions?.BuildModes?.Item);
-
-        return lItems
-            .map((AItem: any) => LazarusProject.readBuildMode(AItem))
-            .filter((AMode: LazarusBuildModeInfo | undefined): AMode is LazarusBuildModeInfo => AMode !== undefined);
+function asArray(value: any): any[] {
+    if (value === undefined || value === null) {
+        return [];
     }
 
-    private static readBuildMode(AItem: any): LazarusBuildModeInfo | undefined {
-        const lName = typeof AItem?.Name === 'string' ? AItem.Name.trim() : '';
-        if (!lName) {
-            return undefined;
-        }
-
-        return {
-            name: lName,
-            isDefault: String(AItem.Default || '').toLowerCase() === 'true'
-        };
-    }
-
-    private static asArray(AValue: any): any[] {
-        if (AValue === undefined || AValue === null) {
-            return [];
-        }
-
-        return Array.isArray(AValue) ? AValue : [AValue];
-    }
+    return Array.isArray(value) ? value : [value];
 }
