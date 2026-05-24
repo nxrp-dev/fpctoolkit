@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import { FpcCommandManager } from '../commands';
-import * as util from '../common/util';
 import { JediFormatter } from '../formatter';
 import * as MyCodeAction from '../languageServer/codeaction';
 import { TLangClient } from '../languageServer/client';
 import { FpcProjectProvider } from '../providers/project';
 import { DefaultBuildModeStorage } from '../providers/defaultBuildModeStorage';
-import { FpcTaskProvider, LazarusTaskProvider, lazarusTaskProvider, taskProvider } from '../providers/task';
+import { FpcTaskProvider, LazarusTaskProvider } from '../providers/task';
 import { DebugBuildService } from './debugBuildService';
 import { EditorIntegrationService } from './editorIntegrationService';
+import { ExtensionPaths } from './extensionPaths';
 import * as runtime from './runtime';
 
 export class NexusPascalExtension implements vscode.Disposable {
@@ -22,6 +22,9 @@ export class NexusPascalExtension implements vscode.Disposable {
         private readonly logger: vscode.OutputChannel,
         private readonly projectProvider: FpcProjectProvider,
         private readonly commandManager: FpcCommandManager,
+        private readonly taskProvider: FpcTaskProvider,
+        private readonly lazarusTaskProvider: LazarusTaskProvider,
+        private readonly extensionPaths: ExtensionPaths,
         private readonly editorIntegrationService: EditorIntegrationService,
         private readonly debugBuildService: DebugBuildService
     ) {}
@@ -35,12 +38,14 @@ export class NexusPascalExtension implements vscode.Disposable {
         const logger = vscode.window.createOutputChannel('Nexus Pascal');
         logger.appendLine('Nexus Pascal extension activating...');
 
-        util.setExtensionContext(context);
         FpcCommandManager.setContext(context);
         DefaultBuildModeStorage.initialize(context);
 
-        const projectProvider = new FpcProjectProvider(workspaceRoot, context);
-        const commandManager = new FpcCommandManager(workspaceRoot);
+        const extensionPaths = new ExtensionPaths(context);
+        const taskProvider = new FpcTaskProvider(workspaceRoot);
+        const lazarusTaskProvider = new LazarusTaskProvider(workspaceRoot);
+        const projectProvider = new FpcProjectProvider(workspaceRoot, context, taskProvider, lazarusTaskProvider);
+        const commandManager = new FpcCommandManager(workspaceRoot, taskProvider, lazarusTaskProvider, extensionPaths);
         const editorIntegrationService = new EditorIntegrationService(() => runtime.getClient(), logger);
         const debugBuildService = new DebugBuildService(projectProvider, logger);
 
@@ -50,6 +55,9 @@ export class NexusPascalExtension implements vscode.Disposable {
             logger,
             projectProvider,
             commandManager,
+            taskProvider,
+            lazarusTaskProvider,
+            extensionPaths,
             editorIntegrationService,
             debugBuildService
         );
@@ -78,8 +86,8 @@ export class NexusPascalExtension implements vscode.Disposable {
 
         this.disposables.push(
             vscode.window.registerTreeDataProvider('FpcProjectExplorer', this.projectProvider),
-            vscode.tasks.registerTaskProvider(FpcTaskProvider.FpcTaskType, taskProvider),
-            vscode.tasks.registerTaskProvider(LazarusTaskProvider.LazarusTaskType, lazarusTaskProvider),
+            vscode.tasks.registerTaskProvider(FpcTaskProvider.FpcTaskType, this.taskProvider),
+            vscode.tasks.registerTaskProvider(LazarusTaskProvider.LazarusTaskType, this.lazarusTaskProvider),
             this.editorIntegrationService,
             this.debugBuildService
         );
@@ -94,7 +102,7 @@ export class NexusPascalExtension implements vscode.Disposable {
 
     private async initializeLanguageServices(): Promise<void> {
         try {
-            this.client = new TLangClient(this.projectProvider);
+            this.client = new TLangClient(this.projectProvider, this.extensionPaths);
             runtime.setClient(this.client);
             await this.client.doInit();
             await this.client.start();
@@ -105,7 +113,7 @@ export class NexusPascalExtension implements vscode.Disposable {
         }
 
         try {
-            this.formatter = new JediFormatter();
+            this.formatter = new JediFormatter(this.extensionPaths);
             runtime.setFormatter(this.formatter);
             this.formatter.doInit();
             this.logger.appendLine('Formatter initialized successfully');

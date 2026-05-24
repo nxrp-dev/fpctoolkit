@@ -4,7 +4,7 @@ import { configuration } from './common/configuration';
 import { env } from 'process';
 import * as fs from 'fs';
 import { getClient, getLogger } from './services/runtime';
-import * as util from './common/util';
+import { ExtensionPaths } from './services/extensionPaths';
 import {
     ExecuteCommandRequest,
     ExecuteCommandParams
@@ -14,12 +14,12 @@ export class JediFormatter {
     private default_cfg: string;
     private is_win: boolean = true;
 
-    constructor() {
+    constructor(private readonly extensionPaths: ExtensionPaths) {
         const plat: NodeJS.Platform = process.platform;
         this.is_win = plat === 'win32';
 
         // 设置默认配置文件路径
-        this.default_cfg = path.resolve(util.getExtensionFilePath("bin"), 'jcfsettings.cfg');
+        this.default_cfg = path.resolve(this.extensionPaths.getFilePath("bin"), 'jcfsettings.cfg');
         let cfg_path = '';
         if (this.is_win) {
             cfg_path = env.LOCALAPPDATA + '/lazarus/jcfsettings.cfg';

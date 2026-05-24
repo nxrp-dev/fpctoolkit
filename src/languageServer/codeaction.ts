@@ -5,7 +5,7 @@
 // https://github.com/microsoft/vscode-extension-samples/blob/main/code-actions-sample/src/extension.ts
 
 import * as vscode from 'vscode';
-import { diagCollection } from '../providers/task';
+import { buildDiagnostics } from '../services/diagnosticsService';
 
 const COMMAND_UNUSED = 'nexusPascal.code-actions.remove_unused_variable';
 
@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
                 edit.replace(document.uri,line.range,linetext);
             }
 
-            let diags= diagCollection.get(document.uri);
+            let diags= buildDiagnostics.get(document.uri);
             if(!diags){
                 vscode.workspace.applyEdit(edit);
                 return;
@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
 
                     newdiags.push(item)
                 }
-                diagCollection.set(document.uri, newdiags);
+                buildDiagnostics.set(document.uri, newdiags);
             }
 
 

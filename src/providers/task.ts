@@ -9,7 +9,6 @@ import path = require('path');
 import { TerminalEscape, TE_Style } from '../common/escape';
 import * as fs from 'fs';
 import { getClient } from '../services/runtime';
-import { DiagnosticSeverity } from 'vscode';
 import { LazarusBuildTerminal } from './lazarusBuildTerminal';
 import { BaseBuildTerminal } from './baseBuildTerminal';
 import { FpcTaskDefinition, LazarusTaskDefinition, isFpcTaskDefinition, isLazarusTaskDefinition } from './taskDefinitions';
@@ -139,7 +138,7 @@ export class FpcTask extends vscode.Task {
 			FpcTaskProvider.FpcTaskType,
 			new FpcCustomExecution(async (): Promise<vscode.Pseudoterminal> => {
 				let buildOptionString: string = '';
-				let realDefinition=taskProvider.GetTaskDefinition(name);
+				let realDefinition = taskDefinition;
 				if (realDefinition === undefined) {
 					realDefinition = taskDefinition;
 				}
@@ -232,8 +231,6 @@ export class LazarusTask extends vscode.Task {
 class FpcCustomExecution extends vscode.CustomExecution {
 
 }
-export var diagCollection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('fpc');
-
 class FpcBuildTaskTerminal extends BaseBuildTerminal {
 	constructor(cwd: string, fpcpath: string) {
 		super(cwd, fpcpath);
@@ -288,14 +285,5 @@ class FpcBuildTaskTerminal extends BaseBuildTerminal {
 			}
 		});
 	}
-}
-
-export let taskProvider: FpcTaskProvider;
-export let lazarusTaskProvider: LazarusTaskProvider;
-
-if (vscode.workspace.workspaceFolders) {
-	const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-	taskProvider = new FpcTaskProvider(workspaceRoot);
-	lazarusTaskProvider = new LazarusTaskProvider(workspaceRoot);
 }
 

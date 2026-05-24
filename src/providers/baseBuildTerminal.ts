@@ -3,7 +3,7 @@ import * as ChildProcess from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { TerminalEscape, TE_Style } from '../common/escape';
-import { diagCollection } from './task';
+import { buildDiagnostics } from '../services/diagnosticsService';
 
 export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode.TerminalExitStatus {
     private writeEmitter = new vscode.EventEmitter<string>();
@@ -83,7 +83,7 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
     }
 
     protected async buildend() {
-        diagCollection.clear();
+        buildDiagnostics.clear();
         let has_error: boolean = false;
 
         for (const iter of this.diagMaps) {
@@ -98,9 +98,9 @@ export abstract class BaseBuildTerminal implements vscode.Pseudoterminal, vscode
             }
 
             if (uri) {
-                diagCollection.set(uri, item);
+                buildDiagnostics.set(uri, item);
             } else {
-                diagCollection.set(vscode.Uri.file(key), item);
+                buildDiagnostics.set(vscode.Uri.file(key), item);
             }
 
             if (!has_error) {

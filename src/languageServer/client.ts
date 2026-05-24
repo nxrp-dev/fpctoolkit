@@ -29,12 +29,12 @@ import {
 import * as net from 'net';
 
 import { FpcProjectProvider } from '../providers/project';
-import * as util from '../common/util';
 import { InitializationOptions } from "./options";
 import { env } from 'process';
 import { getLogger } from '../services/runtime';
 import * as cp from 'child_process';
 import * as fs from 'fs';
+import { ExtensionPaths } from '../services/extensionPaths';
 
 interface InputRegion {
     startLine: number;
@@ -191,7 +191,8 @@ export class TLangClient implements ErrorHandler  {
     private initLock: Promise<void> = Promise.resolve();
 
     constructor(
-        public projProvider: FpcProjectProvider
+        public projProvider: FpcProjectProvider,
+        private readonly extensionPaths: ExtensionPaths
     ) {
         this.client = undefined;
     };
@@ -268,7 +269,7 @@ export class TLangClient implements ErrorHandler  {
         if(paslspath && paslspath.length>0){
             return paslspath;
         }
-        return path.resolve(util.getExtensionFilePath("bin"), extensionProcessName);
+        return path.resolve(this.extensionPaths.getFilePath("bin"), extensionProcessName);
     };
     async doOnReady() {
         this.client?.onNotification(ShowMessageNotification.type, (e: ShowMessageParams) => {

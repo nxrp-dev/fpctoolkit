@@ -4,7 +4,7 @@ import { CompileOption } from '../languageServer/options';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
-import { taskProvider } from './task';
+import { FpcTaskProvider } from './task';
 
 export class FpcTask implements IProjectTask {
     isInLpi: boolean = false;
@@ -12,7 +12,8 @@ export class FpcTask implements IProjectTask {
         public label: string,
         public isDefault: boolean,
         public project: IProjectIntf,
-        private taskDefinition: any
+        private taskDefinition: any,
+        private readonly taskProvider: FpcTaskProvider
     ) {}
 
     getCompileOption(workspaceRoot: string): CompileOption {
@@ -65,7 +66,7 @@ export class FpcTask implements IProjectTask {
             await this.ensureTaskInTasksJson();
         }
         
-        return taskProvider.getTask(
+        return this.taskProvider.getTask(
             this.label,
             this.project.file,
             this.taskDefinition
@@ -180,6 +181,7 @@ export class FpcTaskProject implements IProjectIntf {
         public label: string,
         public file: string,
         isDefault: boolean,
+        private readonly taskProvider: FpcTaskProvider,
         taskDefinitions: any[] | any = []
     ) {
         const taskDefs = Array.isArray(taskDefinitions) ? taskDefinitions : (taskDefinitions ? [taskDefinitions] : []);
@@ -191,7 +193,8 @@ export class FpcTaskProject implements IProjectIntf {
                     taskDef.label || this.label,
                     isTaskDefault,
                     this,
-                    taskDef
+                    taskDef,
+                    this.taskProvider
                 ));
             }
         }
@@ -201,11 +204,12 @@ export class FpcTaskProject implements IProjectIntf {
                 "[default]",
                 isDefault,
                 this,
-                { 
+                {
                     type: 'fpc',
                     label: this.label,
                     file: this.file
-                }
+                },
+                this.taskProvider
             );
             this.tasks.push(defaultTask);
         }

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CompileOption } from '../languageServer/options';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
-import { taskProvider } from './task';
+import { FpcTaskProvider, LazarusTaskProvider } from './task';
 import { clearTimeout } from 'timers';
 import { LazarusProject } from './lazarus';
 import { IProjectTask } from './projectIntf';
@@ -27,11 +27,13 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
     public constructor(
         private workspaceRoot: string,
         context: vscode.ExtensionContext,
+        private readonly taskProvider: FpcTaskProvider,
+        private readonly lazarusTaskProvider: LazarusTaskProvider,
         private projectTypeFilter?: ProjectType
     ) {
         this.watch = vscode.workspace.createFileSystemWatcher(path.join(workspaceRoot, '.vscode', 'tasks.json'), false);
         this.watch.onDidChange(() => {
-            taskProvider.clean();
+            this.taskProvider.clean();
             if (this.timeout !== undefined) {
                 clearTimeout(this.timeout);
             }
@@ -102,7 +104,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
 
         if (lExistingItem?.project) {
             const lProjectIntf = lExistingItem.project as FpcTaskProject;
-            const lTask = new FpcTask(ATaskDefinition.label || lDisplayName, lIsDefault, lProjectIntf, ATaskDefinition);
+            const lTask = new FpcTask(ATaskDefinition.label || lDisplayName, lIsDefault, lProjectIntf, ATaskDefinition, this.taskProvider);
             (lTask as any).isInLpi = false;
             lProjectIntf.tasks.push(lTask);
             if (lIsDefault) {
@@ -111,7 +113,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             return;
         }
 
-        const lProjectIntf = new FpcTaskProject(lDisplayName, lAbsolutePath, lIsDefault, ATaskDefinition);
+        const lProjectIntf = new FpcTaskProject(lDisplayName, lAbsolutePath, lIsDefault, this.taskProvider, ATaskDefinition);
 
         AItemMaps.set(
             lAbsolutePath,
@@ -185,7 +187,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             return;
         }
 
-        AProject.tasks.push(new LazarusBuildModeTask(ALabel, AIsDefault, AIsInLpi, AProject, ABuildMode));
+        AProject.tasks.push(new LazarusBuildModeTask(ALabel, AIsDefault, AIsInLpi, AProject, this.lazarusTaskProvider, ABuildMode));
     }
 
     private addLazarusBuildModesFromProject(AProject: LazarusProject): void {
@@ -250,14 +252,14 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
     public async checkDefaultAndRefresh(): Promise<void> {
         const lOldCompileOption = this.defaultCompileOption;
         if (lOldCompileOption === undefined) {
-            taskProvider.refresh();
+            this.taskProvider.refresh();
             this.refresh();
             return;
         }
 
         const lNewCompileOption = await this.GetDefaultTaskOption();
         if (lOldCompileOption.toOptionString() !== lNewCompileOption.toOptionString()) {
-            taskProvider.refresh();
+            this.taskProvider.refresh();
         }
         this.refresh();
     }
@@ -374,7 +376,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             return lOption;
         }
 
-        const lDefinition = taskProvider.GetTaskDefinition(ATaskDefinition.label) || ATaskDefinition;
+        const lDefinition = this.taskProvider.GetTaskDefinition(ATaskDefinition.label) || ATaskDefinition;
         return new CompileOption(lDefinition, this.workspaceRoot);
     }
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as util from '../common/util';
+import { ExtensionPaths } from '../services/extensionPaths';
 
 export interface ProjectTemplate {
     name: string;
@@ -24,7 +24,10 @@ export class ProjectTemplateManager {
     private static readonly ProjectNameToken = '%PROJECT_NAME%';
     private static readonly IgnoredTemplateFiles = new Set(['template.json']);
 
-    constructor(private readonly workspaceRoot: string) {
+    constructor(
+        private readonly workspaceRoot: string,
+        private readonly extensionPaths: ExtensionPaths
+    ) {
     }
 
     public async selectTemplate(): Promise<ProjectTemplate | undefined> {
@@ -110,7 +113,7 @@ export class ProjectTemplateManager {
     }
 
     private getStarterRoot(): string | undefined {
-        const lStarterRoot = util.getExtensionFilePath(ProjectTemplateManager.StarterRoot);
+        const lStarterRoot = this.extensionPaths.getFilePath(ProjectTemplateManager.StarterRoot);
         return fs.existsSync(lStarterRoot) && fs.statSync(lStarterRoot).isDirectory() ? lStarterRoot : undefined;
     }
 

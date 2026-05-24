@@ -4,7 +4,7 @@ import { CompileOption } from '../languageServer/options';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { IProjectIntf, IProjectTask } from './projectIntf';
 import { DefaultBuildModeStorage } from './defaultBuildModeStorage';
-import { lazarusTaskProvider } from './task';
+import { LazarusTaskProvider } from './task';
 import { LazarusTaskDefinition } from './taskDefinitions';
 
 export class LazarusBuildModeTask implements IProjectTask {
@@ -19,6 +19,7 @@ export class LazarusBuildModeTask implements IProjectTask {
         AIsDefault: boolean,
         AIsInLpi: boolean,
         AProject: IProjectIntf,
+        private readonly taskProvider: LazarusTaskProvider,
         ABuildMode?: string
     ) {
         this.label = ALabel;
@@ -93,7 +94,7 @@ export class LazarusBuildModeTask implements IProjectTask {
         lDefinition.cwd = path.dirname(this.project.file);
         lDefinition.buildMode = this.buildMode;
 
-        return lazarusTaskProvider.getTask(this.label, lDefinition);
+        return this.taskProvider.getTask(this.label, lDefinition);
     }
 
     public async setAsDefault(): Promise<void> {
