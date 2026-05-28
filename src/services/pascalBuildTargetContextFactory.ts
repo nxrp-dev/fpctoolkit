@@ -1,9 +1,10 @@
 import { CompileOption } from '../languageServer/options';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { PascalBuildTarget } from '../model/pascalProject';
+import { PascalProjectAdapterRegistry } from '../projectTypes/pascalProjectAdapter';
 
 export class PascalBuildTargetContextFactory {
-    public constructor(private readonly workspaceRoot: string) {
+    public constructor(private readonly adapters: PascalProjectAdapterRegistry) {
     }
 
     public createCompileOption(target: PascalBuildTarget | undefined): CompileOption {
@@ -11,17 +12,7 @@ export class PascalBuildTargetContextFactory {
             return new CompileOption();
         }
 
-        if (target.kind === 'lazarus') {
-            const option = new CompileOption();
-            option.type = 'lazarus';
-            option.label = target.label;
-            option.file = target.projectFile;
-            option.cwd = target.cwd;
-            option.buildOption = undefined;
-            return option;
-        }
-
-        return new CompileOption(target.taskDefinition, this.workspaceRoot);
+        return this.adapters.get(target.kind).createCompileOption(target);
     }
 
     public createLanguageServerContext(target: PascalBuildTarget | undefined): LanguageServerProjectContext {
@@ -29,19 +20,7 @@ export class PascalBuildTargetContextFactory {
             return this.createLanguageServerContextFromCompileOption(new CompileOption());
         }
 
-        if (target.kind === 'lazarus') {
-            return {
-                kind: 'lazarus',
-                label: target.label,
-                projectFile: target.projectFile,
-                workingDirectory: target.cwd,
-                buildMode: target.buildMode,
-                fpcOptions: [],
-                allowFpcGlobalUnitPaths: false
-            };
-        }
-
-        return this.createLanguageServerContextFromCompileOption(this.createCompileOption(target));
+        return this.adapters.get(target.kind).createLanguageServerContext(target);
     }
 
     private createLanguageServerContextFromCompileOption(option: CompileOption): LanguageServerProjectContext {

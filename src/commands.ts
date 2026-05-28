@@ -8,6 +8,7 @@ import { LanguageClientHandle } from './services/languageClientHandle';
 import { WorkspaceTasksService } from './services/workspaceTasksService';
 import { FpcTaskProvider, LazarusTaskProvider } from './vscode/vscodeTaskProvider';
 import { ExtensionPaths } from './services/extensionPaths';
+import { PascalProjectAdapterRegistry } from './projectTypes/pascalProjectAdapter';
 
 export class FpcCommandManager {
     private readonly projectCommands: ProjectCommandHandler;
@@ -22,6 +23,7 @@ export class FpcCommandManager {
         projectModelService: PascalProjectModelService,
         taskFactory: PascalTaskFactory,
         workspaceTasks: WorkspaceTasksService,
+        projectAdapters: PascalProjectAdapterRegistry,
         refreshProjects: () => void,
         languageClient: LanguageClientHandle
     ) {
@@ -32,6 +34,7 @@ export class FpcCommandManager {
             projectModelService,
             taskFactory,
             workspaceTasks,
+            projectAdapters,
             refreshProjects,
             languageClient
         );

@@ -1,4 +1,5 @@
-export type PascalProjectKind = 'fpc' | 'lazarus';
+import type { PascalProjectKind } from '../model/pascalProject';
+export type { PascalProjectKind } from '../model/pascalProject';
 
 export interface LanguageServerProjectContext {
     kind: PascalProjectKind;

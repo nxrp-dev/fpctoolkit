@@ -69,15 +69,6 @@ export class WorkspaceTasksService {
         return DefaultBuildModeStorage.getInstance().isDefaultBuildMode(this.getLazarusBuildModeId(projectFile, label));
     }
 
-    public async setDefaultBuildTarget(target: PascalBuildTarget): Promise<void> {
-        if (target.kind === 'lazarus') {
-            await this.setDefaultLazarusTarget(target);
-            return;
-        }
-
-        await this.setDefaultFpcTarget(target);
-    }
-
     public resolveWorkspacePath(value: string | undefined, basePath: string = this.workspaceRoot): string {
         if (!value) {
             return basePath;
@@ -126,7 +117,7 @@ export class WorkspaceTasksService {
             : projectLabelTask;
     }
 
-    private async setDefaultFpcTarget(target: PascalBuildTarget & { kind: 'fpc' }): Promise<void> {
+    public async setDefaultFpcTarget(target: PascalBuildTarget & { kind: 'fpc' }): Promise<void> {
         DefaultBuildModeStorage.getInstance().setDefaultBuildMode('');
         const tasks = this.getAllTasks();
         let tasksUpdated = false;
@@ -151,7 +142,7 @@ export class WorkspaceTasksService {
         }
     }
 
-    private async setDefaultLazarusTarget(target: PascalBuildTarget & { kind: 'lazarus' }): Promise<void> {
+    public async setDefaultLazarusTarget(target: PascalBuildTarget & { kind: 'lazarus' }): Promise<void> {
         DefaultBuildModeStorage.getInstance().setDefaultBuildMode(this.getLazarusBuildModeId(target.projectFile, target.label));
         const tasks = this.getAllTasks();
         let tasksUpdated = false;

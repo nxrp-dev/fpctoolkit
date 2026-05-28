@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FpcProjectProvider } from '../providers/project';
+import { PascalProjectExplorerProvider } from '../providers/project';
 import { PascalTaskFactory } from './pascalTaskFactory';
 import { WorkspaceTasksService } from './workspaceTasksService';
 
@@ -7,7 +7,7 @@ export class DebugBuildService implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
 
     public constructor(
-        private readonly projectProvider: FpcProjectProvider,
+        private readonly projectProvider: PascalProjectExplorerProvider,
         private readonly logger: vscode.OutputChannel,
         private readonly taskFactory: PascalTaskFactory,
         private readonly workspaceTasks: WorkspaceTasksService
@@ -120,6 +120,10 @@ export class DebugBuildService implements vscode.Disposable {
         }
 
         const defaultTask = this.taskFactory.createTask(defaultTarget);
+        if (!defaultTask) {
+            this.logger.appendLine(`Debug pre-check: Build is not wired for ${defaultTarget.label}`);
+            return;
+        }
 
         this.logger.appendLine('Debug auto-compilation: File changes detected, starting compilation');
         const execution = await vscode.tasks.executeTask(defaultTask);

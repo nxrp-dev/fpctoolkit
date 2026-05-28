@@ -13,7 +13,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import * as fs from 'fs';
-import { FpcProjectProvider } from '../providers/project';
+import { PascalProjectExplorerProvider } from '../providers/project';
 import { ExtensionPaths } from '../services/extensionPaths';
 import { ClientLifecycleLock } from './clientLifecycle';
 import { InactiveRegions } from './inactiveRegions';
@@ -33,7 +33,7 @@ export class PascalLanguageClientService implements ErrorHandler {
     private readonly executableResolver: ServerExecutableResolver;
 
     public constructor(
-        public projProvider: FpcProjectProvider,
+        public projProvider: PascalProjectExplorerProvider,
         private readonly extensionPaths: ExtensionPaths,
         private readonly logger: vscode.OutputChannel,
         private readonly serverStoragePath?: string
@@ -136,7 +136,7 @@ export class PascalLanguageClientService implements ErrorHandler {
             });
             this.logger.appendLine(`Added ${globalUnitPaths.length} FPC global unit paths to language server context`);
         } else {
-            this.logger.appendLine('Skipped FPC global unit paths for Lazarus language server context');
+            this.logger.appendLine(`Skipped FPC global unit paths for ${projectContext.kind} language server context`);
         }
 
         const clientOptions = createLanguageClientOptions(initializationOptions, this);

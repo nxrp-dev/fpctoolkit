@@ -1,54 +1,16 @@
 import * as vscode from 'vscode';
-import { FpcBuildTarget, LazarusBuildTarget, PascalBuildTarget } from '../model/pascalProject';
-import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
-import { FpcTaskDefinition, LazarusTaskDefinition } from '../providers/taskDefinitions';
+import { PascalBuildTarget } from '../model/pascalProject';
+import { PascalProjectAdapterRegistry } from '../projectTypes/pascalProjectAdapter';
 
 export class PascalTaskFactory {
-    public constructor(
-        private readonly fpcTaskProvider: FpcTaskProvider,
-        private readonly lazarusTaskProvider: LazarusTaskProvider
-    ) {
+    public constructor(private readonly adapters: PascalProjectAdapterRegistry) {
     }
 
-    public createTask(target: PascalBuildTarget): vscode.Task {
-        if (target.kind === 'lazarus') {
-            return this.createLazarusTargetTask(target);
+    public createTask(target: PascalBuildTarget): vscode.Task | undefined {
+        if (!target.canBuild) {
+            return undefined;
         }
 
-        return this.createFpcTargetTask(target);
-    }
-
-    public createFpcTask(label: string, projectFile: string, taskDefinition: FpcTaskDefinition): vscode.Task {
-        return this.fpcTaskProvider.getTask(label, projectFile, taskDefinition);
-    }
-
-    public createLazarusTask(
-        label: string,
-        projectFile: string,
-        cwd: string,
-        buildMode?: string,
-        forceRebuild?: boolean
-    ): vscode.Task {
-        const definition = new LazarusTaskDefinition();
-        definition.project = projectFile;
-        definition.cwd = cwd;
-        definition.buildMode = buildMode;
-        definition.forceRebuild = forceRebuild;
-
-        return this.lazarusTaskProvider.getTask(label, definition);
-    }
-
-    private createFpcTargetTask(target: FpcBuildTarget): vscode.Task {
-        return this.createFpcTask(target.label, target.projectFile, target.taskDefinition);
-    }
-
-    private createLazarusTargetTask(target: LazarusBuildTarget): vscode.Task {
-        return this.createLazarusTask(
-            target.label,
-            target.projectFile,
-            target.cwd,
-            target.buildMode,
-            target.taskDefinition?.forceRebuild
-        );
+        return this.adapters.get(target.kind).createTask(target);
     }
 }

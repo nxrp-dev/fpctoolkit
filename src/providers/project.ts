@@ -8,21 +8,22 @@ import { PascalBuildTargetContextFactory } from '../services/pascalBuildTargetCo
 import { PascalProjectModelService } from '../services/pascalProjectModelService';
 import { PascalProjectTreeFactory } from '../services/pascalProjectTreeFactory';
 import { FpcTaskProvider } from '../vscode/vscodeTaskProvider';
-import { FpcItem } from './fpcItem';
-import { ProjectType } from './projectType';
+import { PascalProjectTreeItem } from './pascalProjectTreeItem';
+import { PascalProjectKind } from '../model/pascalProject';
 
-export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
+export class PascalProjectExplorerProvider implements vscode.TreeDataProvider<PascalProjectTreeItem> {
 
-    private readonly _onDidChangeTreeData: vscode.EventEmitter<FpcItem | undefined | void> = new vscode.EventEmitter<FpcItem | undefined | void>();
-    public readonly onDidChangeTreeData: vscode.Event<FpcItem | undefined | void> = this._onDidChangeTreeData.event;
+    private readonly _onDidChangeTreeData: vscode.EventEmitter<PascalProjectTreeItem | undefined | void> = new vscode.EventEmitter<PascalProjectTreeItem | undefined | void>();
+    public readonly onDidChangeTreeData: vscode.Event<PascalProjectTreeItem | undefined | void> = this._onDidChangeTreeData.event;
 
     private readonly watch: vscode.FileSystemWatcher;
     private readonly watchSource: vscode.FileSystemWatcher;
+    private readonly watchProjectDescriptors: vscode.FileSystemWatcher;
     private defaultCompileOption?: CompileOption = undefined;
     private timeout?: NodeJS.Timeout = undefined;
     private _hasSourceFileChanged = false;
 
-    public defaultFpcItem?: FpcItem = undefined;
+    public defaultProjectItem?: PascalProjectTreeItem = undefined;
 
     public constructor(
         private readonly workspaceRoot: string,
@@ -30,7 +31,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         private readonly projectModelService: PascalProjectModelService,
         private readonly buildTargetContextFactory: PascalBuildTargetContextFactory,
         private readonly treeFactory: PascalProjectTreeFactory,
-        private readonly projectTypeFilter?: ProjectType
+        private readonly projectKindFilter?: PascalProjectKind
     ) {
         this.watch = vscode.workspace.createFileSystemWatcher(path.join(workspaceRoot, '.vscode', 'tasks.json'), false);
         this.watch.onDidChange(() => {
@@ -50,6 +51,16 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         this.watchSource.onDidChange(() => this._hasSourceFileChanged = true);
         this.watchSource.onDidCreate(() => this._hasSourceFileChanged = true);
         this.watchSource.onDidDelete(() => this._hasSourceFileChanged = true);
+
+        this.watchProjectDescriptors = vscode.workspace.createFileSystemWatcher(
+            '**/{nexus.project.json,project.nexus.json,.nexus/project.json}',
+            false,
+            false,
+            false
+        );
+        this.watchProjectDescriptors.onDidChange(() => this.refresh());
+        this.watchProjectDescriptors.onDidCreate(() => this.refresh());
+        this.watchProjectDescriptors.onDidDelete(() => this.refresh());
     }
 
     public hasSourceFileChanged(): boolean {
@@ -60,9 +71,9 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         this._hasSourceFileChanged = false;
     }
 
-    public async ensureDefaultFpcItem(): Promise<FpcItem | undefined> {
-        if (this.defaultFpcItem) {
-            return this.defaultFpcItem;
+    public async ensureDefaultProjectItem(): Promise<PascalProjectTreeItem | undefined> {
+        if (this.defaultProjectItem) {
+            return this.defaultProjectItem;
         }
 
         const projects = this.getFilteredProjects();
@@ -76,8 +87,8 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             return undefined;
         }
 
-        this.defaultFpcItem = this.treeFactory.createTargetItem(project, defaultTarget);
-        return this.defaultFpcItem;
+        this.defaultProjectItem = this.treeFactory.createTargetItem(project, defaultTarget);
+        return this.defaultProjectItem;
     }
 
     public async ensureDefaultTarget(projects: PascalProject[] = this.getFilteredProjects()): Promise<PascalBuildTarget | undefined> {
@@ -87,10 +98,11 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
     public dispose(): void {
         this.watch?.dispose();
         this.watchSource?.dispose();
+        this.watchProjectDescriptors?.dispose();
     }
 
     public refresh(): void {
-        this.defaultFpcItem = undefined;
+        this.defaultProjectItem = undefined;
         this._onDidChangeTreeData.fire();
     }
 
@@ -109,27 +121,17 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
         this.refresh();
     }
 
-    public getTreeItem(element: FpcItem): vscode.TreeItem {
+    public getTreeItem(element: PascalProjectTreeItem): vscode.TreeItem {
         return element;
     }
 
-    public async getChildren(element?: FpcItem): Promise<FpcItem[]> {
+    public async getChildren(element?: PascalProjectTreeItem): Promise<PascalProjectTreeItem[]> {
         if (element) {
             const items = (element.project?.targets || []).map(target => {
-                const item = new FpcItem(
-                    1,
-                    target.label,
-                    vscode.TreeItemCollapsibleState.None,
-                    element.file,
-                    element.fileexist,
-                    target.isDefault,
-                    element.projectType,
-                    element.project,
-                    target
-                );
+                const item = this.treeFactory.createTargetItem(element.project!, target);
 
                 if (item.isDefault) {
-                    this.defaultFpcItem = item;
+                    this.defaultProjectItem = item;
                 }
 
                 return item;
@@ -138,7 +140,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
             return items;
         }
 
-        this.defaultFpcItem = undefined;
+        this.defaultProjectItem = undefined;
         return this.getFilteredProjects().map(project => this.treeFactory.createProjectItem(project));
     }
 
@@ -158,7 +160,7 @@ export class FpcProjectProvider implements vscode.TreeDataProvider<FpcItem> {
     private getFilteredProjects(): PascalProject[] {
         return this.projectModelService
             .loadProjects()
-            .filter(project => this.projectTypeFilter === undefined || this.treeFactory.getProjectType(project) === this.projectTypeFilter);
+            .filter(project => this.projectKindFilter === undefined || this.treeFactory.getProjectKind(project) === this.projectKindFilter);
     }
 
 }

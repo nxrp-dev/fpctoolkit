@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { FpcItem } from '../providers/fpcItem';
-import { ProjectType } from '../providers/projectType';
+import { PascalProjectTreeItem } from '../providers/pascalProjectTreeItem';
+import { PascalProjectAdapterRegistry } from '../projectTypes/pascalProjectAdapter';
 import { PascalProjectModelService } from '../services/pascalProjectModelService';
 import { PascalTaskFactory } from '../services/pascalTaskFactory';
 import { LanguageClientHandle } from '../services/languageClientHandle';
@@ -19,6 +19,7 @@ export class ProjectCommandHandler {
         private readonly projectModelService: PascalProjectModelService,
         private readonly taskFactory: PascalTaskFactory,
         private readonly workspaceTasks: WorkspaceTasksService,
+        private readonly projectAdapters: PascalProjectAdapterRegistry,
         private readonly refreshProjects: () => void,
         private readonly languageClient: LanguageClientHandle
     ) {
@@ -41,15 +42,18 @@ export class ProjectCommandHandler {
         context.subscriptions.push(vscode.commands.registerCommand(command, handler));
     }
 
-    private projectAdd = async (node?: FpcItem): Promise<void> => {
+    private projectAdd = async (node?: PascalProjectTreeItem): Promise<void> => {
         if (!node || node.level !== 0) {
             return;
         }
 
-        if (node.projectType === ProjectType.Lazarus) {
-            vscode.window.showInformationMessage(
-                'Lazarus build configurations are managed by the Lazarus project file.'
-            );
+        if (!node.project) {
+            return;
+        }
+
+        const adapter = this.projectAdapters.get(node.project.kind);
+        if (!adapter.canAddBuildConfiguration(node.project)) {
+            vscode.window.showInformationMessage(adapter.buildConfigurationUnavailableMessage(node.project));
             return;
         }
 
@@ -58,27 +62,21 @@ export class ProjectCommandHandler {
             return;
         }
 
-        const tasks = this.workspaceTasks.getAllTasks();
-        const finalLabel = this.workspaceTasks.getUniqueFpcTaskLabel(label, node.label, tasks);
-        if (!finalLabel) {
-            vscode.window.showWarningMessage(`Task "${label}" already exists for this project. Skipping task creation.`);
-            return;
+        const result = await adapter.createBuildConfiguration(node.project, label);
+        if (!result.created && result.message) {
+            vscode.window.showWarningMessage(result.message);
         }
-
-        tasks.push(this.workspaceTasks.createFpcTask(finalLabel, node.label));
-
-        await this.workspaceTasks.updateTasks(tasks);
     };
 
-    private projectBuild = async (node?: FpcItem): Promise<void> => {
+    private projectBuild = async (node?: PascalProjectTreeItem): Promise<void> => {
         await this.executeProjectTask(node, false);
     };
 
-    private projectRebuild = async (node?: FpcItem): Promise<void> => {
+    private projectRebuild = async (node?: PascalProjectTreeItem): Promise<void> => {
         await this.executeProjectTask(node, true);
     };
 
-    private projectOpen = async (node?: FpcItem): Promise<void> => {
+    private projectOpen = async (node?: PascalProjectTreeItem): Promise<void> => {
         const tasksFile = this.workspaceTasks.getTaskFilePath();
         if (!fs.existsSync(tasksFile)) {
             vscode.window.showErrorMessage('Task configuration file not found.');
@@ -90,7 +88,7 @@ export class ProjectCommandHandler {
         await vscode.window.showTextDocument(document, { selection });
     };
 
-    private projectSetDefault = async (node?: FpcItem): Promise<void> => {
+    private projectSetDefault = async (node?: PascalProjectTreeItem): Promise<void> => {
         if (!node || node.level !== 1 || !node.target) {
             return;
         }
@@ -100,8 +98,8 @@ export class ProjectCommandHandler {
         await this.restartLanguageServer();
     };
 
-    private openWithLazarus = async (node?: FpcItem): Promise<void> => {
-        if (!node || node.level !== 0 || node.projectType !== ProjectType.Lazarus) {
+    private openWithLazarus = async (node?: PascalProjectTreeItem): Promise<void> => {
+        if (!node || node.level !== 0 || node.project?.kind !== 'lazarus') {
             vscode.window.showErrorMessage('This command is only available for Lazarus projects.');
             return;
         }
@@ -119,7 +117,7 @@ export class ProjectCommandHandler {
         }
     };
 
-    private async executeProjectTask(node: FpcItem | undefined, rebuild: boolean): Promise<void> {
+    private async executeProjectTask(node: PascalProjectTreeItem | undefined, rebuild: boolean): Promise<void> {
         if (!node || node.level === 0) {
             return;
         }
@@ -130,6 +128,11 @@ export class ProjectCommandHandler {
         }
 
         const task = this.taskFactory.createTask(node.target);
+        if (!task) {
+            vscode.window.showInformationMessage(`Build is not wired for ${node.target.label}.`);
+            return;
+        }
+
         if (rebuild) {
             this.setTaskBuildMode(task, BuildMode.rebuild);
         }
