@@ -3,8 +3,6 @@
 
 ![Nexus Pascal preview](images/doc/fpctoolkit.gif)
 
-For Chinese documentation, see [中文文档](README_CN.md).
-
 ## Requirements
 
 - Install [Lazarus](https://www.lazarus-ide.org/) or [FreePascal](https://www.freepascal.org/download.var).
@@ -153,9 +151,9 @@ Field  | Type | Description  |
 ## Documentation
 
 For detailed documentation, see:
-- [Configuration Guide](doc/en/CONFIGURATION.md) (English) / [配置指南](doc/cn/CONFIGURATION.md) (中文)
-- [Template Guide](doc/en/TEMPLATE_GUIDE.md) (English) / [模板指南](doc/cn/TEMPLATE_GUIDE.md) (中文)
-- [Lazbuild Usage Guide](doc/en/LAZBUILD_USAGE.md) (English) / [Lazbuild 使用指南](doc/cn/LAZBUILD_USAGE.md) (中文)
+- [Configuration Guide](doc/en/CONFIGURATION.md)
+- [Template Guide](doc/en/TEMPLATE_GUIDE.md)
+- [Lazbuild Usage Guide](doc/en/LAZBUILD_USAGE.md)
 
 # Thanks
 ## Syntax Highlighting
