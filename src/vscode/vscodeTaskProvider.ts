@@ -4,9 +4,12 @@ import { FpcTaskDefinition, LazarusTaskDefinition, isFpcTaskDefinition, isLazaru
 import { FpcTask, LazarusTask } from './vscodeTask';
 import { FPC_TASK_TYPE, LAZARUS_TASK_TYPE } from './vscodeTaskTypes';
 
+type TaskSource = () => vscode.Task[];
+
 export class FpcTaskProvider implements vscode.TaskProvider {
     static FpcTaskType = FPC_TASK_TYPE;
     public taskMap: Map<string, vscode.Task> = new Map<string, vscode.Task>();
+    private taskSource?: TaskSource;
 
     constructor(
         private workspaceRoot: string,
@@ -17,6 +20,10 @@ export class FpcTaskProvider implements vscode.TaskProvider {
 
     public clean(): void {
         this.taskMap.clear();
+    }
+
+    public setTaskSource(taskSource: TaskSource): void {
+        this.taskSource = taskSource;
     }
 
     public async provideTasks(): Promise<vscode.Task[]> {
@@ -40,44 +47,65 @@ export class FpcTaskProvider implements vscode.TaskProvider {
             return task;
         }
 
-        if (definition.cwd) {
-            const rawCwd = definition.cwd;
-            if (rawCwd.includes('${workspaceFolder}')) {
-                this.cwd = rawCwd.replace(/\$\{workspaceFolder\}/g, this.workspaceRoot);
-            } else if (path.isAbsolute(rawCwd)) {
-                this.cwd = rawCwd;
-            } else {
-                this.cwd = path.join(this.workspaceRoot, rawCwd);
-            }
-        }
-
         const task = this.getTask(_task.name, file, definition);
+        this.applyResolvedTaskMetadata(_task, task);
         this.taskMap.set(_task.name, task);
         return task;
     }
 
     private async getTasks(): Promise<vscode.Task[]> {
-        return [];
+        this.taskMap.clear();
+        return this.taskSource ? this.taskSource() : [];
     }
 
     public getTask(name: string, file: string, definition: FpcTaskDefinition): vscode.Task {
-        return new FpcTask(this.cwd ? this.cwd : this.workspaceRoot, name, file, definition);
+        const task = new FpcTask(this.resolveCwd(definition.cwd), name, file, definition);
+        this.taskMap.set(name, task);
+        return task;
     }
 
     public notifyTaskConfigurationChanged(): void {
         this.onTaskConfigurationChanged();
+    }
+
+    private resolveCwd(rawCwd?: string): string {
+        if (!rawCwd) {
+            return this.cwd ? this.cwd : this.workspaceRoot;
+        }
+        if (rawCwd.includes('${workspaceFolder}')) {
+            return rawCwd.replace(/\$\{workspaceFolder\}/g, this.workspaceRoot);
+        }
+        if (path.isAbsolute(rawCwd)) {
+            return rawCwd;
+        }
+        return path.join(this.workspaceRoot, rawCwd);
+    }
+
+    private applyResolvedTaskMetadata(source: vscode.Task, target: vscode.Task): void {
+        if (source.group) {
+            target.group = source.group;
+        }
+        if (source.problemMatchers.length > 0) {
+            target.problemMatchers = source.problemMatchers;
+        }
     }
 }
 
 export class LazarusTaskProvider implements vscode.TaskProvider {
     static LazarusTaskType = LAZARUS_TASK_TYPE;
     public taskMap: Map<string, vscode.Task> = new Map<string, vscode.Task>();
+    private taskSource?: TaskSource;
 
     constructor(private workspaceRoot: string) {
     }
 
+    public setTaskSource(taskSource: TaskSource): void {
+        this.taskSource = taskSource;
+    }
+
     public async provideTasks(): Promise<vscode.Task[]> {
-        return [];
+        this.taskMap.clear();
+        return this.taskSource ? this.taskSource() : [];
     }
 
     public resolveTask(_task: vscode.Task): vscode.Task | undefined {
@@ -86,6 +114,7 @@ export class LazarusTaskProvider implements vscode.TaskProvider {
         }
 
         const task = this.getTask(_task.name, _task.definition);
+        this.applyResolvedTaskMetadata(_task, task);
         this.taskMap.set(_task.name, task);
         return task;
     }
@@ -107,5 +136,14 @@ export class LazarusTaskProvider implements vscode.TaskProvider {
             return rawCwd;
         }
         return path.join(this.workspaceRoot, rawCwd);
+    }
+
+    private applyResolvedTaskMetadata(source: vscode.Task, target: vscode.Task): void {
+        if (source.group) {
+            target.group = source.group;
+        }
+        if (source.problemMatchers.length > 0) {
+            target.problemMatchers = source.problemMatchers;
+        }
     }
 }

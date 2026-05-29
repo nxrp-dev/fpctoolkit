@@ -32,11 +32,11 @@ export class ProjectTemplateManager {
     public async createNexusProject(AProjectName: string, ATargetDir?: string): Promise<void> {
         const lTargetDir = ATargetDir || this.workspaceRoot;
         const lProjectName = AProjectName || 'newproject';
-        const lTargetPath = path.join(lTargetDir, 'nexus.project.json');
+        const lTargetPath = path.join(lTargetDir, `${lProjectName}.nxp`);
 
         if (fs.existsSync(lTargetPath)) {
             const lChoice = await vscode.window.showWarningMessage(
-                'nexus.project.json already exists. Overwrite it?',
+                `${path.basename(lTargetPath)} already exists. Overwrite it?`,
                 'Overwrite',
                 'Cancel'
             );

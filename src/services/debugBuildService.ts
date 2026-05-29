@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
-import { PascalProjectExplorerProvider } from '../providers/project';
 import { PascalTaskFactory } from './pascalTaskFactory';
+import { PascalProjectWorkspaceService } from './pascalProjectWorkspaceService';
 import { WorkspaceTasksService } from './workspaceTasksService';
 
 export class DebugBuildService implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
 
     public constructor(
-        private readonly projectProvider: PascalProjectExplorerProvider,
+        private readonly projectWorkspace: PascalProjectWorkspaceService,
         private readonly logger: vscode.OutputChannel,
         private readonly taskFactory: PascalTaskFactory,
         private readonly workspaceTasks: WorkspaceTasksService
@@ -95,24 +95,24 @@ export class DebugBuildService implements vscode.Disposable {
             return;
         }
 
-        if (!this.projectProvider.hasSourceFileChanged()) {
+        if (!this.projectWorkspace.hasSourceFileChanged()) {
             return;
         }
 
         this.logger.appendLine('Debug pre-check: Source file changes detected, compilation needed');
 
-        let defaultTarget = await this.projectProvider.ensureDefaultTarget();
+        let defaultTarget = await this.projectWorkspace.ensureDefaultTarget();
 
         if (!defaultTarget) {
             await new Promise<void>((resolve) => {
-                const disposable = this.projectProvider.onDidChangeTreeData(() => {
+                const disposable = this.projectWorkspace.onDidChangeProjects(() => {
                     disposable.dispose();
                     resolve();
                 });
-                this.projectProvider.refresh();
+                this.projectWorkspace.refresh();
             });
 
-            defaultTarget = await this.projectProvider.ensureDefaultTarget();
+            defaultTarget = await this.projectWorkspace.ensureDefaultTarget();
             if (!defaultTarget) {
                 this.logger.appendLine('Debug pre-check: No default project found');
                 return;
@@ -144,7 +144,7 @@ export class DebugBuildService implements vscode.Disposable {
                 taskDisposable.dispose();
 
                 if (e.exitCode === 0) {
-                    this.projectProvider.resetSourceFileChanged();
+                    this.projectWorkspace.resetSourceFileChanged();
                     this.logger.appendLine('Debug auto-compilation: Compilation completed successfully');
                     resolve();
                     return;
@@ -174,7 +174,7 @@ export class DebugBuildService implements vscode.Disposable {
                 taskCompleted = true;
                 processDisposable.dispose();
                 taskDisposable.dispose();
-                this.projectProvider.resetSourceFileChanged();
+                this.projectWorkspace.resetSourceFileChanged();
                 this.logger.appendLine('Debug auto-compilation: Compilation completed (exit code unknown)');
                 resolve();
             });

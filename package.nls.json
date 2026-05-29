@@ -1,10 +1,5 @@
 {
-    "project.build": "Build Project",
-    "project.rebuild": "Rebuild",
-    "project.open": "Open",
     "project.newproject": "New Project...",
-    "project.newconfig": "Create New Configuration",
-    "project.setdefault": "Set as Default Task",
     "task.file": "Free Pascal project file. (.lpr,.dpr)",
     "task.cwd": "Current working directory. If not set, defaults to vscode workspace directory.",
     "task.buildOption.targetOS": "Target operating system (-T)",
@@ -40,7 +35,6 @@
     "config.languageServer.enum.overloadPolicy_1": "Show multiple names",
     "config.languageServer.enum.overloadPolicy_2": "Show only the first one",
     "config.languageServer.enum.overloadPolicy_3": "Add numbers before names",
-    "views.welcome": "No project files found.\n[New Project...](command:nexusPascal.project.newproject)",
     "config.format.tabSize": "Number of spaces to convert tab to.",
     "config.format.enabled": "Enable source code formatting (using Jedi).",
     "config.format.configPath": "Format configuration file path (jcfsettings.cfg).",

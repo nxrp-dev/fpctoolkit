@@ -6,7 +6,7 @@ import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { FpcBuildTarget, FpcProjectModel, PascalBuildTarget, PascalProject } from '../model/pascalProject';
 import { FpcTaskDefinition } from '../providers/taskDefinitions';
 import { FpcTaskProvider } from '../vscode/vscodeTaskProvider';
-import { BuildConfigurationResult, PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
+import { PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
 import { WorkspaceTasksService } from '../services/workspaceTasksService';
 
 export class FpcProjectAdapter implements PascalProjectAdapter {
@@ -25,20 +25,18 @@ export class FpcProjectAdapter implements PascalProjectAdapter {
                 this.collectProject(taskDefinition, collection.projectsByFile);
             }
         }
-    }
 
-    public async setDefaultTarget(target: PascalBuildTarget): Promise<void> {
-        if (target.kind === this.kind) {
-            await this.workspaceTasks.setDefaultFpcTarget(target);
+        for (const projectFile of this.findProjectFiles(this.workspaceRoot)) {
+            this.collectDiscoveredProject(projectFile, collection.projectsByFile);
         }
     }
 
-    public createTask(target: PascalBuildTarget): vscode.Task | undefined {
+    public createTask(target: PascalBuildTarget, taskName?: string): vscode.Task | undefined {
         if (target.kind !== this.kind) {
             return undefined;
         }
 
-        return this.taskProvider.getTask(target.label, target.projectFile, target.taskDefinition);
+        return this.taskProvider.getTask(taskName || target.label, target.projectFile, target.taskDefinition);
     }
 
     public createCompileOption(target: PascalBuildTarget | undefined): CompileOption {
@@ -84,29 +82,6 @@ export class FpcProjectAdapter implements PascalProjectAdapter {
         return new vscode.ThemeIcon('tools');
     }
 
-    public canAddBuildConfiguration(_project: PascalProject): boolean {
-        return true;
-    }
-
-    public buildConfigurationUnavailableMessage(_project: PascalProject): string {
-        return '';
-    }
-
-    public async createBuildConfiguration(project: PascalProject, label: string): Promise<BuildConfigurationResult> {
-        const tasks = this.workspaceTasks.getAllTasks();
-        const finalLabel = this.workspaceTasks.getUniqueFpcTaskLabel(label, project.label, tasks);
-        if (!finalLabel) {
-            return {
-                created: false,
-                message: `Task "${label}" already exists for this project. Skipping task creation.`
-            };
-        }
-
-        tasks.push(this.workspaceTasks.createFpcTask(finalLabel, project.label));
-        await this.workspaceTasks.updateTasks(tasks);
-        return { created: true };
-    }
-
     private collectProject(taskDefinition: FpcTaskDefinition, projectsByFile: Map<string, PascalProject>): void {
         if (!taskDefinition.file) {
             return;
@@ -117,7 +92,7 @@ export class FpcProjectAdapter implements PascalProjectAdapter {
         const project = this.getOrCreateProject(projectFile, taskDefinition, projectsByFile);
         const label = taskDefinition.label || project.label;
 
-        project.targets.push({
+        this.addTarget(project, {
             id: this.createTargetId(projectFile, label),
             kind: this.kind,
             label,
@@ -125,6 +100,29 @@ export class FpcProjectAdapter implements PascalProjectAdapter {
             projectFile,
             isDefault: taskDefinition.group?.isDefault === true,
             isInProjectFile: false,
+            canBuild: true,
+            taskDefinition
+        });
+    }
+
+    private collectDiscoveredProject(projectFile: string, projectsByFile: Map<string, PascalProject>): void {
+        const taskDefinition = new FpcTaskDefinition();
+        taskDefinition.file = projectFile;
+        taskDefinition.cwd = path.dirname(projectFile);
+        taskDefinition.buildOption = {
+            syntaxMode: 'ObjFPC',
+            unitOutputDir: './out'
+        };
+
+        const project = this.getOrCreateProject(projectFile, taskDefinition, projectsByFile);
+        this.addTarget(project, {
+            id: this.createTargetId(projectFile, 'Default'),
+            kind: this.kind,
+            label: 'Default',
+            projectId: project.id,
+            projectFile,
+            isDefault: false,
+            isInProjectFile: true,
             canBuild: true,
             taskDefinition
         });
@@ -155,5 +153,58 @@ export class FpcProjectAdapter implements PascalProjectAdapter {
 
     private createTargetId(projectFile: string, label: string): string {
         return `${projectFile}::${label}`;
+    }
+
+    private addTarget(project: FpcProjectModel, target: FpcBuildTarget): void {
+        if (project.targets.some(candidate => candidate.id === target.id)) {
+            return;
+        }
+
+        project.targets.push(target);
+    }
+
+    private findProjectFiles(root: string): string[] {
+        const results: string[] = [];
+        this.walkProjectFiles(root, file => {
+            if (this.isFpcProjectFile(file) && !this.hasAdjacentLazarusProject(file)) {
+                results.push(file);
+            }
+        });
+        return results;
+    }
+
+    private walkProjectFiles(directory: string, callback: (file: string) => void): void {
+        if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+            return;
+        }
+
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                if (!this.shouldSkipDirectory(entry.name)) {
+                    this.walkProjectFiles(entryPath, callback);
+                }
+                continue;
+            }
+
+            if (entry.isFile()) {
+                callback(entryPath);
+            }
+        }
+    }
+
+    private isFpcProjectFile(file: string): boolean {
+        const extension = path.extname(file).toLowerCase();
+        return extension === '.lpr' || extension === '.dpr';
+    }
+
+    private hasAdjacentLazarusProject(file: string): boolean {
+        const directory = path.dirname(file);
+        const baseName = path.basename(file, path.extname(file));
+        return fs.existsSync(path.join(directory, `${baseName}.lpi`));
+    }
+
+    private shouldSkipDirectory(name: string): boolean {
+        return ['.git', '.svn', '.hg', '.vscode', 'node_modules', 'out', 'output', 'dist'].includes(name.toLowerCase());
     }
 }

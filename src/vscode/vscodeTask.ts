@@ -30,6 +30,8 @@ export class FpcTask extends vscode.Task {
                 return new BuildTaskTerminal(command);
             })
         );
+        this.group = vscode.TaskGroup.Build;
+        this.problemMatchers = ['$fpc'];
     }
 }
 
@@ -56,6 +58,8 @@ export class LazarusTask extends vscode.Task {
                 return new BuildTaskTerminal(command);
             })
         );
+        this.group = vscode.TaskGroup.Build;
+        this.problemMatchers = ['$fpc'];
     }
 }
 

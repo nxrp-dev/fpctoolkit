@@ -28,10 +28,6 @@ export class PascalProjectModelService {
         return projects[0]?.targets[0];
     }
 
-    public async setDefaultTarget(target: PascalBuildTarget): Promise<void> {
-        await this.adapters.get(target.kind).setDefaultTarget(target);
-    }
-
     private applyDefaultTarget(projects: PascalProject[]): void {
         let defaultTarget = this.getExplicitDefaultTarget(projects);
 

@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { CompileOption } from '../languageServer/options';
 import { LanguageServerProjectContext } from '../languageServer/projectContext';
 import { NexusProjectModel, PascalBuildTarget, PascalProject } from '../model/pascalProject';
-import { BuildConfigurationResult, PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
+import { PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
 
 interface NexusProjectDescriptor {
     name?: string;
@@ -12,11 +12,6 @@ interface NexusProjectDescriptor {
 
 export class NexusProjectAdapter implements PascalProjectAdapter {
     public readonly kind = 'nexus' as const;
-
-    private static readonly DescriptorFileNames = new Set([
-        'nexus.project.json',
-        'project.nexus.json'
-    ]);
 
     public constructor(private readonly workspaceRoot: string) {
     }
@@ -28,10 +23,7 @@ export class NexusProjectAdapter implements PascalProjectAdapter {
         }
     }
 
-    public async setDefaultTarget(_target: PascalBuildTarget): Promise<void> {
-    }
-
-    public createTask(_target: PascalBuildTarget): vscode.Task | undefined {
+    public createTask(_target: PascalBuildTarget, _taskName?: string): vscode.Task | undefined {
         return undefined;
     }
 
@@ -68,21 +60,6 @@ export class NexusProjectAdapter implements PascalProjectAdapter {
         }
 
         return new vscode.ThemeIcon('circle-large-outline');
-    }
-
-    public canAddBuildConfiguration(_project: PascalProject): boolean {
-        return false;
-    }
-
-    public buildConfigurationUnavailableMessage(_project: PascalProject): string {
-        return 'Nexus project build wiring has not been defined yet.';
-    }
-
-    public async createBuildConfiguration(project: PascalProject, _label: string): Promise<BuildConfigurationResult> {
-        return {
-            created: false,
-            message: this.buildConfigurationUnavailableMessage(project)
-        };
     }
 
     private createProject(descriptorFile: string): NexusProjectModel {
@@ -125,10 +102,7 @@ export class NexusProjectAdapter implements PascalProjectAdapter {
     }
 
     private getProjectRoot(descriptorFile: string): string {
-        const parent = path.dirname(descriptorFile);
-        return path.basename(parent).toLowerCase() === '.nexus'
-            ? path.dirname(parent)
-            : parent;
+        return path.dirname(descriptorFile);
     }
 
     private findDescriptorFiles(root: string): string[] {
@@ -143,10 +117,9 @@ export class NexusProjectAdapter implements PascalProjectAdapter {
                 return;
             }
 
-            for (const fileName of NexusProjectAdapter.DescriptorFileNames) {
-                const descriptorFile = path.join(directory, fileName);
-                if (fs.existsSync(descriptorFile)) {
-                    results.push(descriptorFile);
+            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+                if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.nxp') {
+                    results.push(path.join(directory, entry.name));
                 }
             }
         });

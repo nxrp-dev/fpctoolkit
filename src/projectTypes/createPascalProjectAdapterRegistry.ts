@@ -13,7 +13,7 @@ export function createPascalProjectAdapterRegistry(
 ): PascalProjectAdapterRegistry {
     const registry = new PascalProjectAdapterRegistry();
     registry.register(new FpcProjectAdapter(workspaceRoot, workspaceTasks, fpcTaskProvider));
-    registry.register(new LazarusProjectAdapter(workspaceTasks, lazarusTaskProvider));
+    registry.register(new LazarusProjectAdapter(workspaceRoot, workspaceTasks, lazarusTaskProvider));
     registry.register(new NexusProjectAdapter(workspaceRoot));
     return registry;
 }

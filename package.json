@@ -54,9 +54,19 @@
           ".fmx",
           ".dpr",
           ".dpk",
-          ".lfm",
           ".dpr",
           ".lpr"
+        ],
+        "configuration": "./pascal-configuration.json"
+      },
+      {
+        "id": "lazarusform",
+        "aliases": [
+          "Lazarus Form",
+          "LFM"
+        ],
+        "extensions": [
+          ".lfm"
         ],
         "configuration": "./pascal-configuration.json"
       },
@@ -73,6 +83,11 @@
       },
       {
         "language": "pascal",
+        "scopeName": "source.pascal",
+        "path": "./syntaxes/fpc.tmLanguage"
+      },
+      {
+        "language": "lazarusform",
         "scopeName": "source.pascal",
         "path": "./syntaxes/fpc.tmLanguage"
       }
@@ -92,32 +107,6 @@
         "command": "nexusPascal.project.newproject",
         "title": "%project.newproject%",
         "icon": "$(add)"
-      },
-      {
-        "command": "nexusPascal.project.build",
-        "title": "%project.build%",
-        "icon": "$(play)"
-      },
-      {
-        "command": "nexusPascal.project.rebuild",
-        "title": "%project.rebuild%"
-      },
-      {
-        "command": "nexusPascal.project.opensetting",
-        "title": "%project.open%"
-      },
-      {
-        "command": "nexusPascal.project.add",
-        "title": "%project.newconfig%"
-      },
-      {
-        "command": "nexusPascal.project.setdefault",
-        "title": "%project.setdefault%"
-      },
-      {
-        "command": "nexusPascal.project.openWithLazarus",
-        "title": "Open with Lazarus",
-        "icon": "$(link-external)"
       },
       {
         "command": "nexusPascal.project.newFpcProject",
@@ -280,48 +269,6 @@
         }
       }
     ],
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "nexusPascal.project.build",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
-          "group": "fpcproject@1"
-        },
-        {
-          "command": "nexusPascal.project.rebuild",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
-          "group": "fpcproject@2"
-        },
-        {
-          "command": "nexusPascal.project.setdefault",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
-          "group": "fpcprojectcfg@4"
-        },
-        {
-          "command": "nexusPascal.project.add",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcproject)",
-          "group": "fpcproject@0"
-        },
-        {
-          "command": "nexusPascal.project.openWithLazarus",
-          "when": "view == FpcProjectExplorer && viewItem==lazarusproject",
-          "group": "lazarusproject@1"
-        },
-        {
-          "command": "nexusPascal.project.build",
-          "when": "view == FpcProjectExplorer && (viewItem==fpcbuild || viewItem==lazarusbuildmode)",
-          "group": "inline"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "nexusPascal.project.newproject",
-          "when": "view == FpcProjectExplorer",
-          "group": "navigation",
-          "icon": "$(add)"
-        }
-      ]
-    },
     "configuration": [
       {
         "title": "Nexus Pascal Toolchain",
@@ -497,22 +444,6 @@
             "markdownDescription": "%config.languageServer.initializationOptions.showSyntaxErrors%"
           }
         }
-      }
-    ],
-    "views": {
-      "explorer": [
-        {
-          "id": "FpcProjectExplorer",
-          "name": "Pascal Projects",
-          "icon": "images/logo.png"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "FpcProjectExplorer",
-        "contents": "%views.welcome%",
-        "when": "!workspace.workspaceFolders"
       }
     ],
     "problemMatchers": [

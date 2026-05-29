@@ -7,17 +7,11 @@ export interface ProjectCollection {
     projectsByFile: Map<string, PascalProject>;
 }
 
-export interface BuildConfigurationResult {
-    created: boolean;
-    message?: string;
-}
-
 export interface PascalProjectAdapter {
     readonly kind: PascalProjectKind;
 
     collectProjects(collection: ProjectCollection): void;
-    setDefaultTarget(target: PascalBuildTarget): Promise<void>;
-    createTask(target: PascalBuildTarget): vscode.Task | undefined;
+    createTask(target: PascalBuildTarget, taskName?: string): vscode.Task | undefined;
     createCompileOption(target: PascalBuildTarget | undefined): CompileOption;
     createLanguageServerContext(target: PascalBuildTarget | undefined): LanguageServerProjectContext;
 
@@ -25,10 +19,6 @@ export interface PascalProjectAdapter {
     getTargetContextValue(target: PascalBuildTarget): string;
     getProjectIcon(project: PascalProject): vscode.ThemeIcon | string | undefined;
     getTargetIcon(target: PascalBuildTarget): vscode.ThemeIcon | string | undefined;
-
-    canAddBuildConfiguration(project: PascalProject): boolean;
-    buildConfigurationUnavailableMessage(project: PascalProject): string;
-    createBuildConfiguration(project: PascalProject, label: string): Promise<BuildConfigurationResult>;
 }
 
 export class PascalProjectAdapterRegistry {

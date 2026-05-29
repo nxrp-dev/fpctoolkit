@@ -48,14 +48,14 @@ export class ProjectCreationService {
         const template = await this.resolveTemplate(request);
 
         if (request.kind === 'nexus') {
-            const descriptorFile = path.join(request.targetDir, 'nexus.project.json');
+            const descriptorFile = path.join(request.targetDir, `${request.projectName}.nxp`);
             const collisions = this.fileExistsWarningPath(descriptorFile);
             return {
                 kind: request.kind,
                 templateName: 'Nexus Project',
                 projectName: request.projectName,
                 targetDir: request.targetDir,
-                files: ['nexus.project.json'],
+                files: [`${request.projectName}.nxp`],
                 collisions,
                 warnings,
                 canCreate: warnings.length === 0

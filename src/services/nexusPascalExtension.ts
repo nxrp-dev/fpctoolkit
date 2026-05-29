@@ -3,9 +3,9 @@ import { FpcCommandManager } from '../commands';
 import { PascalFormatterService } from '../formatter';
 import * as MyCodeAction from '../languageServer/codeaction';
 import { PascalLanguageClientService } from '../languageServer/client';
-import { PascalProjectExplorerProvider } from '../providers/project';
-import { DefaultBuildModeStorage } from '../providers/defaultBuildModeStorage';
+import { PascalBuildTarget, PascalProject, PascalProjectKind } from '../model/pascalProject';
 import { createPascalProjectAdapterRegistry } from '../projectTypes/createPascalProjectAdapterRegistry';
+import { BuildMode } from '../vscode/vscodeTask';
 import { FpcTaskProvider, LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
 import { DebugBuildService } from './debugBuildService';
 import { EditorIntegrationService } from './editorIntegrationService';
@@ -13,7 +13,7 @@ import { ExtensionPaths } from './extensionPaths';
 import { LanguageClientHandle } from './languageClientHandle';
 import { PascalBuildTargetContextFactory } from './pascalBuildTargetContextFactory';
 import { PascalProjectModelService } from './pascalProjectModelService';
-import { PascalProjectTreeFactory } from './pascalProjectTreeFactory';
+import { PascalProjectWorkspaceService } from './pascalProjectWorkspaceService';
 import { PascalTaskFactory } from './pascalTaskFactory';
 import { WorkspaceTasksService } from './workspaceTasksService';
 
@@ -27,7 +27,7 @@ export class NexusPascalExtension implements vscode.Disposable {
         private readonly workspaceRoot: string,
         private readonly logger: vscode.OutputChannel,
         private readonly languageClient: LanguageClientHandle,
-        private readonly projectProvider: PascalProjectExplorerProvider,
+        private readonly projectWorkspace: PascalProjectWorkspaceService,
         private readonly commandManager: FpcCommandManager,
         private readonly taskProvider: FpcTaskProvider,
         private readonly lazarusTaskProvider: LazarusTaskProvider,
@@ -45,8 +45,6 @@ export class NexusPascalExtension implements vscode.Disposable {
         const logger = vscode.window.createOutputChannel('Nexus Pascal');
         logger.appendLine('Nexus Pascal extension activating...');
 
-        DefaultBuildModeStorage.initialize(context);
-
         const extensionPaths = new ExtensionPaths(context);
         const languageClient = new LanguageClientHandle();
         const workspaceTasks = new WorkspaceTasksService(workspaceRoot);
@@ -61,35 +59,29 @@ export class NexusPascalExtension implements vscode.Disposable {
         const projectModelService = new PascalProjectModelService(projectAdapters);
         const buildTargetContextFactory = new PascalBuildTargetContextFactory(projectAdapters);
         const taskFactory = new PascalTaskFactory(projectAdapters);
-        const treeFactory = new PascalProjectTreeFactory(projectAdapters);
-        const projectProvider = new PascalProjectExplorerProvider(
+        taskProvider.setTaskSource(() => createProvidedTasks(projectModelService, taskFactory, 'fpc'));
+        lazarusTaskProvider.setTaskSource(() => createProvidedTasks(projectModelService, taskFactory, 'lazarus'));
+        const projectWorkspace = new PascalProjectWorkspaceService(
             workspaceRoot,
             taskProvider,
             projectModelService,
-            buildTargetContextFactory,
-            treeFactory
+            buildTargetContextFactory
         );
         const commandManager = new FpcCommandManager(
             workspaceRoot,
-            taskProvider,
-            lazarusTaskProvider,
             extensionPaths,
-            projectModelService,
-            taskFactory,
             workspaceTasks,
-            projectAdapters,
-            () => projectProvider.refresh(),
             languageClient
         );
         const editorIntegrationService = new EditorIntegrationService(() => languageClient.current, logger);
-        const debugBuildService = new DebugBuildService(projectProvider, logger, taskFactory, workspaceTasks);
+        const debugBuildService = new DebugBuildService(projectWorkspace, logger, taskFactory, workspaceTasks);
 
         const app = new NexusPascalExtension(
             context,
             workspaceRoot,
             logger,
             languageClient,
-            projectProvider,
+            projectWorkspace,
             commandManager,
             taskProvider,
             lazarusTaskProvider,
@@ -106,7 +98,7 @@ export class NexusPascalExtension implements vscode.Disposable {
         this.disposables.splice(0).forEach(disposable => disposable.dispose());
         this.client?.stop();
         this.languageClient.set(undefined);
-        this.projectProvider.dispose();
+        this.projectWorkspace.dispose();
         this.logger.dispose();
     }
 
@@ -114,7 +106,6 @@ export class NexusPascalExtension implements vscode.Disposable {
         this.commandManager.registerAll(this.context);
 
         this.disposables.push(
-            vscode.window.registerTreeDataProvider('FpcProjectExplorer', this.projectProvider),
             vscode.tasks.registerTaskProvider(FpcTaskProvider.FpcTaskType, this.taskProvider),
             vscode.tasks.registerTaskProvider(LazarusTaskProvider.LazarusTaskType, this.lazarusTaskProvider),
             this.editorIntegrationService,
@@ -133,7 +124,7 @@ export class NexusPascalExtension implements vscode.Disposable {
         try {
             const serverStoragePath = this.context.storageUri?.fsPath ?? this.context.globalStorageUri.fsPath;
             this.client = new PascalLanguageClientService(
-                this.projectProvider,
+                this.projectWorkspace,
                 this.extensionPaths,
                 this.logger,
                 serverStoragePath
@@ -164,4 +155,53 @@ export class NexusPascalExtension implements vscode.Disposable {
             console.error('CodeAction error:', error);
         }
     }
+}
+
+function createProvidedTasks(
+    projectModelService: PascalProjectModelService,
+    taskFactory: PascalTaskFactory,
+    kind: PascalProjectKind
+): vscode.Task[] {
+    const tasks: vscode.Task[] = [];
+
+    for (const project of projectModelService.loadProjects()) {
+        for (const target of project.targets) {
+            if (target.kind !== kind || !target.canBuild || !target.isInProjectFile) {
+                continue;
+            }
+
+            const buildTask = taskFactory.createTask(
+                target,
+                createTaskName(project, target, 'Build'),
+                BuildMode.normal
+            );
+            if (buildTask) {
+                tasks.push(buildTask);
+            }
+
+            const rebuildTask = taskFactory.createTask(
+                target,
+                createTaskName(project, target, 'Rebuild'),
+                BuildMode.rebuild
+            );
+            if (rebuildTask) {
+                tasks.push(rebuildTask);
+            }
+        }
+    }
+
+    return tasks;
+}
+
+function createTaskName(project: PascalProject, target: PascalBuildTarget, verb: 'Build' | 'Rebuild'): string {
+    const kindName = project.kind === 'lazarus'
+        ? 'Lazarus'
+        : project.kind === 'fpc'
+            ? 'Free Pascal'
+            : 'Nexus';
+    const targetPart = target.label && target.label !== project.label
+        ? ` ${target.label}`
+        : '';
+
+    return `${verb} ${project.label} (${kindName}${targetPart})`;
 }

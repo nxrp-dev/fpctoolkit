@@ -8,12 +8,13 @@ import { readLazarusBuildModes } from '../providers/lazarus';
 import { LazarusTaskDefinition } from '../providers/taskDefinitions';
 import { WorkspaceTasksService } from '../services/workspaceTasksService';
 import { LazarusTaskProvider } from '../vscode/vscodeTaskProvider';
-import { BuildConfigurationResult, PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
+import { PascalProjectAdapter, ProjectCollection } from './pascalProjectAdapter';
 
 export class LazarusProjectAdapter implements PascalProjectAdapter {
     public readonly kind = 'lazarus' as const;
 
     public constructor(
+        private readonly workspaceRoot: string,
         private readonly workspaceTasks: WorkspaceTasksService,
         private readonly taskProvider: LazarusTaskProvider
     ) {
@@ -25,15 +26,13 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
                 this.collectProject(taskDefinition, collection.projectsByFile);
             }
         }
-    }
 
-    public async setDefaultTarget(target: PascalBuildTarget): Promise<void> {
-        if (target.kind === this.kind) {
-            await this.workspaceTasks.setDefaultLazarusTarget(target);
+        for (const projectFile of this.findProjectFiles(this.workspaceRoot)) {
+            this.collectDiscoveredProject(projectFile, collection.projectsByFile);
         }
     }
 
-    public createTask(target: PascalBuildTarget): vscode.Task | undefined {
+    public createTask(target: PascalBuildTarget, taskName?: string): vscode.Task | undefined {
         if (target.kind !== this.kind) {
             return undefined;
         }
@@ -44,7 +43,7 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
         definition.buildMode = target.buildMode;
         definition.forceRebuild = target.taskDefinition?.forceRebuild;
 
-        return this.taskProvider.getTask(target.label, definition);
+        return this.taskProvider.getTask(taskName || target.label, definition);
     }
 
     public createCompileOption(target: PascalBuildTarget | undefined): CompileOption {
@@ -104,22 +103,11 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
         return new vscode.ThemeIcon('gear');
     }
 
-    public canAddBuildConfiguration(_project: PascalProject): boolean {
-        return false;
-    }
-
-    public buildConfigurationUnavailableMessage(_project: PascalProject): string {
-        return 'Lazarus build configurations are managed by the Lazarus project file.';
-    }
-
-    public async createBuildConfiguration(_project: PascalProject, _label: string): Promise<BuildConfigurationResult> {
-        return {
-            created: false,
-            message: this.buildConfigurationUnavailableMessage(_project)
-        };
-    }
-
-    private collectProject(taskDefinition: LazarusTaskDefinition, projectsByFile: Map<string, PascalProject>): void {
+    private collectProject(
+        taskDefinition: LazarusTaskDefinition,
+        projectsByFile: Map<string, PascalProject>,
+        defaultTargetIsInProjectFile = false
+    ): void {
         if (!taskDefinition.project) {
             return;
         }
@@ -139,7 +127,7 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
             cwd: path.dirname(projectFile),
             buildMode,
             isDefault: taskDefinition.group?.isDefault === true,
-            isInProjectFile: false,
+            isInProjectFile: defaultTargetIsInProjectFile,
             canBuild: true,
             taskDefinition
         });
@@ -153,11 +141,20 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
                 projectFile,
                 cwd: path.dirname(projectFile),
                 buildMode: mode.name,
-                isDefault: this.workspaceTasks.isDefaultLazarusBuildMode(projectFile, mode.name),
+                isDefault: mode.isDefault,
                 isInProjectFile: true,
                 canBuild: true
             });
         }
+    }
+
+    private collectDiscoveredProject(projectFile: string, projectsByFile: Map<string, PascalProject>): void {
+        const taskDefinition = new LazarusTaskDefinition();
+        taskDefinition.project = projectFile;
+        taskDefinition.cwd = path.dirname(projectFile);
+        taskDefinition.buildMode = 'Default';
+
+        this.collectProject(taskDefinition, projectsByFile, true);
     }
 
     private getOrCreateProject(projectFile: string, projectsByFile: Map<string, PascalProject>): LazarusProjectModel {
@@ -194,5 +191,44 @@ export class LazarusProjectAdapter implements PascalProjectAdapter {
 
     private createTargetId(projectFile: string, label: string, buildMode?: string): string {
         return `${projectFile}::${buildMode || label}`;
+    }
+
+    private findProjectFiles(root: string): string[] {
+        const results: string[] = [];
+        this.walkProjectFiles(root, file => {
+            if (this.isLazarusProjectFile(file)) {
+                results.push(file);
+            }
+        });
+        return results;
+    }
+
+    private walkProjectFiles(directory: string, callback: (file: string) => void): void {
+        if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+            return;
+        }
+
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                if (!this.shouldSkipDirectory(entry.name)) {
+                    this.walkProjectFiles(entryPath, callback);
+                }
+                continue;
+            }
+
+            if (entry.isFile()) {
+                callback(entryPath);
+            }
+        }
+    }
+
+    private isLazarusProjectFile(file: string): boolean {
+        const extension = path.extname(file).toLowerCase();
+        return extension === '.lpi' || extension === '.lpk';
+    }
+
+    private shouldSkipDirectory(name: string): boolean {
+        return ['.git', '.svn', '.hg', '.vscode', 'node_modules', 'out', 'output', 'dist'].includes(name.toLowerCase());
     }
 }

@@ -13,7 +13,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import * as fs from 'fs';
-import { PascalProjectExplorerProvider } from '../providers/project';
+import { PascalProjectWorkspaceService } from '../services/pascalProjectWorkspaceService';
 import { ExtensionPaths } from '../services/extensionPaths';
 import { ClientLifecycleLock } from './clientLifecycle';
 import { InactiveRegions } from './inactiveRegions';
@@ -33,7 +33,7 @@ export class PascalLanguageClientService implements ErrorHandler {
     private readonly executableResolver: ServerExecutableResolver;
 
     public constructor(
-        public projProvider: PascalProjectExplorerProvider,
+        public projectWorkspace: PascalProjectWorkspaceService,
         private readonly extensionPaths: ExtensionPaths,
         private readonly logger: vscode.OutputChannel,
         private readonly serverStoragePath?: string
@@ -109,7 +109,7 @@ export class PascalLanguageClientService implements ErrorHandler {
 
         const initializationOptions = new InitializationOptions();
 
-        const projectContext = await this.projProvider.getDefaultLanguageServerContext();
+        const projectContext = await this.projectWorkspace.getDefaultLanguageServerContext();
         initializationOptions.updateByProjectContext(projectContext);
         this.logger.appendLine(`Language server project context: ${projectContext.kind} ${projectContext.projectFile}`);
 
