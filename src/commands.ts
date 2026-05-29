@@ -15,7 +15,7 @@ export class FpcCommandManager {
         extensionPaths: ExtensionPaths,
         languageClient: LanguageClientHandle
     ) {
-        this.templateCommands = new TemplateCommandHandler(workspaceRoot, extensionPaths);
+        this.templateCommands = new TemplateCommandHandler(workspaceRoot, extensionPaths, languageClient);
         this.languageServerCommands = new LanguageServerCommandHandler(languageClient);
         this.lazarusTestModuleCommands = new LazarusTestModuleCommandHandler(workspaceRoot);
     }

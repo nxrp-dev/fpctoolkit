@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { ExtensionPaths } from '../services/extensionPaths';
 
 export interface ProjectTemplate {
@@ -32,18 +32,6 @@ export class ProjectTemplateManager {
         const lTargetDir = ATargetDir || this.workspaceRoot;
         const lProjectName = AProjectName || 'newproject';
         const lTargetPath = path.join(lTargetDir, `${lProjectName}.nxp`);
-
-        if (fs.existsSync(lTargetPath)) {
-            const lChoice = await vscode.window.showWarningMessage(
-                `${path.basename(lTargetPath)} already exists. Overwrite it?`,
-                'Overwrite',
-                'Cancel'
-            );
-
-            if (lChoice !== 'Overwrite') {
-                return;
-            }
-        }
 
         const lContent = {
             name: lProjectName
@@ -80,26 +68,9 @@ export class ProjectTemplateManager {
         return lFiles.sort((ALeft, ARight) => ALeft.localeCompare(ARight));
     }
 
-    public getCollisions(ATemplate: ProjectTemplate, ATargetDir: string, AProjectName: string): string[] {
-        return this.findCollisions(ATemplate.sourcePath, ATargetDir, AProjectName);
-    }
-
     public async createProjectFromTemplate(ATemplate: ProjectTemplate, AProjectName?: string, ATargetDir?: string): Promise<void> {
         const lTargetDir = ATargetDir || this.workspaceRoot;
         const lProjectName = AProjectName || 'newproject';
-        const lCollisions = this.findCollisions(ATemplate.sourcePath, lTargetDir, lProjectName);
-
-        if (lCollisions.length > 0) {
-            const lChoice = await vscode.window.showWarningMessage(
-                `${lCollisions.length} file(s) already exist. Overwrite them?`,
-                'Overwrite',
-                'Cancel'
-            );
-
-            if (lChoice !== 'Overwrite') {
-                return;
-            }
-        }
 
         this.copyStarter(ATemplate.sourcePath, lTargetDir, lProjectName);
         await this.openFirstPascalFile(ATemplate.sourcePath, lTargetDir, lProjectName);
@@ -145,20 +116,6 @@ export class ProjectTemplateManager {
     private isStarterDirectory(ADirectory: string): boolean {
         return fs.readdirSync(ADirectory, { withFileTypes: true })
             .some((AEntry) => AEntry.isFile() && !this.isIgnoredTemplateFile(AEntry.name));
-    }
-
-    private findCollisions(ASourceDir: string, ATargetDir: string, AProjectName: string): string[] {
-        const lCollisions: string[] = [];
-
-        this.walkFiles(ASourceDir, (ASourceFile, ARelativePath) => {
-            const lTargetPath = path.join(ATargetDir, this.applyProjectName(ARelativePath, AProjectName));
-
-            if (fs.existsSync(lTargetPath)) {
-                lCollisions.push(lTargetPath);
-            }
-        });
-
-        return lCollisions;
     }
 
     private copyStarter(ASourceDir: string, ATargetDir: string, AProjectName: string): void {

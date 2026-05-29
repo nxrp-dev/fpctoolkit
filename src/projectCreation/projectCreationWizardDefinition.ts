@@ -139,11 +139,7 @@ export class ProjectCreationWizardDefinition implements WizardDefinition<Project
     private createMessages(plan: ProjectCreationPlan): WizardMessage[] {
         const validationSeverity = plan.canCreate ? 'warning' : 'error';
         return [
-            ...plan.warnings.map(text => ({ severity: validationSeverity as 'warning' | 'error', text })),
-            ...plan.collisions.map(fileName => ({
-                severity: 'warning' as const,
-                text: `Existing file may be overwritten: ${fileName}`
-            }))
+            ...plan.warnings.map(text => ({ severity: validationSeverity as 'warning' | 'error', text }))
         ];
     }
 

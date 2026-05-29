@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { FpcCommandManager } from '../commands';
-import { PascalFormatterService } from '../formatter';
 import * as MyCodeAction from '../languageServer/codeaction';
 import { PascalLanguageClientService } from '../languageServer/client';
 import { PascalBuildTarget, PascalProject, PascalProjectKind } from '../model/pascalProject';
@@ -20,7 +19,6 @@ import { WorkspaceTasksService } from './workspaceTasksService';
 export class NexusPascalExtension implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
     private client?: PascalLanguageClientService;
-    private formatter?: PascalFormatterService;
 
     private constructor(
         private readonly context: vscode.ExtensionContext,
@@ -135,15 +133,6 @@ export class NexusPascalExtension implements vscode.Disposable {
         } catch (error) {
             this.logger.appendLine(`Language server initialization failed: ${error}`);
             console.error('Language server error:', error);
-        }
-
-        try {
-            this.formatter = new PascalFormatterService(this.extensionPaths, () => this.languageClient.current, this.logger);
-            this.formatter.doInit();
-            this.logger.appendLine('Formatter initialized successfully');
-        } catch (error) {
-            this.logger.appendLine(`Formatter initialization failed: ${error}`);
-            console.error('Formatter error:', error);
         }
 
         try {

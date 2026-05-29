@@ -22,7 +22,6 @@ export interface ProjectCreationPlan {
     projectName: string;
     targetDir: string;
     files: string[];
-    collisions: string[];
     warnings: string[];
     canCreate: boolean;
 }

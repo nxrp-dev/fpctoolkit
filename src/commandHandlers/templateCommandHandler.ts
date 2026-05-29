@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { ProjectCreationKind } from '../projectCreation/projectCreationTypes';
 import { ProjectCreationService } from '../projectCreation/projectCreationService';
+import { NexusProjectRemoteWizardDefinition } from '../projectCreation/nexusProjectRemoteWizardDefinition';
 import { ProjectCreationWizardDefinition } from '../projectCreation/projectCreationWizardDefinition';
 import { ProjectTemplateManager } from '../providers/projectTemplate';
 import { ExtensionPaths } from '../services/extensionPaths';
+import { LanguageClientHandle } from '../services/languageClientHandle';
 import { WizardPanel } from '../wizard/wizardPanel';
 
 export class TemplateCommandHandler {
@@ -13,7 +15,8 @@ export class TemplateCommandHandler {
 
     public constructor(
         private readonly workspaceRoot: string,
-        extensionPaths: ExtensionPaths
+        extensionPaths: ExtensionPaths,
+        private readonly languageClient: LanguageClientHandle
     ) {
         this.templateManager = new ProjectTemplateManager(workspaceRoot, extensionPaths);
         this.projectCreationService = new ProjectCreationService(workspaceRoot, this.templateManager);
@@ -36,9 +39,13 @@ export class TemplateCommandHandler {
 
     private showProjectWizard = async (initialKind: ProjectCreationKind): Promise<void> => {
         try {
+            const definition = initialKind === 'nexus'
+                ? new NexusProjectRemoteWizardDefinition(this.languageClient, this.workspaceRoot)
+                : new ProjectCreationWizardDefinition(this.projectCreationService, initialKind);
+
             await WizardPanel.show(
                 this.extensionUri || vscode.Uri.file(this.workspaceRoot),
-                new ProjectCreationWizardDefinition(this.projectCreationService, initialKind)
+                definition
             );
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create project: ${error}`);

@@ -13,8 +13,6 @@ export function getServerEnvironment(serverStoragePath?: string): ServerEnvironm
     const toolchainConfig = workspace.getConfiguration('nexusPascal.toolchain');
     const compilerPath = toolchainConfig.get<string>('compilerPath');
     const lazarusDirectory = toolchainConfig.get<string>('lazarusDirectory');
-    const targetOS = toolchainConfig.get<string>('targetOS');
-    const targetCPU = toolchainConfig.get<string>('targetCPU');
     const languageServerConfig = workspace.getConfiguration('nexusPascal.languageServer');
     const fpcSourceDirectory = languageServerConfig.get<string>('fpcSourceDirectory');
 
@@ -23,12 +21,6 @@ export function getServerEnvironment(serverStoragePath?: string): ServerEnvironm
     }
     if (lazarusDirectory) {
         userEnvironmentVariables['LAZARUSDIR'] = lazarusDirectory;
-    }
-    if (targetOS) {
-        userEnvironmentVariables['FPCTARGET'] = targetOS;
-    }
-    if (targetCPU) {
-        userEnvironmentVariables['FPCTARGETCPU'] = targetCPU;
     }
     if (fpcSourceDirectory) {
         userEnvironmentVariables['FPCDIR'] = fpcSourceDirectory;

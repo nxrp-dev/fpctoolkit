@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import {
+    WizardConflict,
     WizardDefinition,
     WizardField,
     WizardFieldType,
@@ -38,8 +39,6 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
 
     private readonly disposables: vscode.Disposable[] = [];
     private fields: WizardField[] = [];
-    private lastRequest: TRequest | undefined;
-    private lastPlan: TPlan | undefined;
 
     public static async show<TRequest extends WizardRequest, TPlan extends WizardPlan>(
         extensionUri: vscode.Uri,
@@ -109,7 +108,6 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
 
     private async postInit(): Promise<void> {
         const request = await this.definition.getInitialRequest();
-        this.lastRequest = request;
         this.fields = await this.definition.getFields(request);
 
         await this.postMessage({
@@ -122,20 +120,17 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
     }
 
     private async postPlan(request: TRequest): Promise<void> {
-        this.lastRequest = request;
-        this.lastPlan = await this.definition.createPlan(request);
+        const plan = await this.withOutputConflicts(await this.definition.createPlan(request));
         this.fields = await this.definition.getFields(request);
         await this.postMessage({
             type: 'plan',
-            plan: this.lastPlan,
+            plan,
             fields: this.fields
         });
     }
 
     private async execute(request: TRequest): Promise<void> {
-        const plan = this.lastRequest === request && this.lastPlan
-            ? this.lastPlan
-            : await this.definition.createPlan(request);
+        const plan = await this.withOutputConflicts(await this.definition.createPlan(request));
 
         if (!plan.canExecute) {
             await this.postMessage({
@@ -145,8 +140,72 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
             return;
         }
 
+        if (!(await this.confirmOutputConflicts(plan))) {
+            return;
+        }
+
         await this.definition.execute(request, plan);
         this.panel.dispose();
+    }
+
+    private async withOutputConflicts(plan: TPlan): Promise<TPlan> {
+        const outputConflicts = await this.findOutputConflicts(plan);
+        if (outputConflicts.length === 0) {
+            return plan;
+        }
+
+        return {
+            ...plan,
+            conflicts: [
+                ...(plan.conflicts || []),
+                ...outputConflicts
+            ]
+        };
+    }
+
+    private async findOutputConflicts(plan: TPlan): Promise<WizardConflict[]> {
+        const conflicts: WizardConflict[] = [];
+        for (const output of plan.outputs || []) {
+            if (!output.path) {
+                continue;
+            }
+
+            if (await this.pathExists(output.path)) {
+                conflicts.push({
+                    source: 'client',
+                    severity: 'warning',
+                    code: 'file-exists',
+                    text: `Output already exists: ${output.path}`,
+                    path: output.path
+                });
+            }
+        }
+
+        return conflicts;
+    }
+
+    private async pathExists(filePath: string): Promise<boolean> {
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    private async confirmOutputConflicts(plan: TPlan): Promise<boolean> {
+        const outputConflicts = (plan.conflicts || [])
+            .filter(conflict => conflict.source === 'client' && conflict.code === 'file-exists');
+        if (outputConflicts.length === 0) {
+            return true;
+        }
+
+        const choice = await vscode.window.showWarningMessage(
+            `${outputConflicts.length} output file(s) already exist. Overwrite them?`,
+            'Overwrite',
+            'Cancel'
+        );
+        return choice === 'Overwrite';
     }
 
     private async browseField(fieldId: string, currentValue?: string): Promise<void> {
@@ -346,6 +405,10 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
                 <div id="details" class="details"></div>
             </div>
             <div class="section">
+                <h2>Conflicts</h2>
+                <div id="conflicts"></div>
+            </div>
+            <div class="section">
                 <h2>Outputs</h2>
                 <ul id="outputList"></ul>
             </div>
@@ -361,6 +424,7 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
         const fieldsNode = document.getElementById('fields');
         const summaryNode = document.getElementById('summary');
         const messagesNode = document.getElementById('messages');
+        const conflictsNode = document.getElementById('conflicts');
         const detailsNode = document.getElementById('details');
         const outputListNode = document.getElementById('outputList');
 
@@ -546,6 +610,22 @@ export class WizardPanel<TRequest extends WizardRequest, TPlan extends WizardPla
                 node.className = 'message ' + message.severity;
                 node.textContent = message.text;
                 messagesNode.appendChild(node);
+            }
+
+            conflictsNode.innerHTML = '';
+            const conflicts = plan.conflicts || [];
+            if (conflicts.length === 0) {
+                const node = document.createElement('div');
+                node.className = 'message info';
+                node.textContent = 'None';
+                conflictsNode.appendChild(node);
+            } else {
+                for (const conflict of conflicts) {
+                    const node = document.createElement('div');
+                    node.className = 'message ' + conflict.severity;
+                    node.textContent = conflict.text;
+                    conflictsNode.appendChild(node);
+                }
             }
 
             detailsNode.innerHTML = '';

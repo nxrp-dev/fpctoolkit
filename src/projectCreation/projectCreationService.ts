@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { ProjectTemplate, ProjectTemplateManager } from '../providers/projectTemplate';
 import {
     ProjectCreationKind,
@@ -48,15 +46,12 @@ export class ProjectCreationService {
         const template = await this.resolveTemplate(request);
 
         if (request.kind === 'nexus') {
-            const descriptorFile = path.join(request.targetDir, `${request.projectName}.nxp`);
-            const collisions = this.fileExistsWarningPath(descriptorFile);
             return {
                 kind: request.kind,
                 templateName: 'Nexus Project',
                 projectName: request.projectName,
                 targetDir: request.targetDir,
                 files: [`${request.projectName}.nxp`],
-                collisions,
                 warnings,
                 canCreate: warnings.length === 0
             };
@@ -69,14 +64,12 @@ export class ProjectCreationService {
                 projectName: request.projectName,
                 targetDir: request.targetDir,
                 files: [],
-                collisions: [],
                 warnings: [...warnings, 'Select a project starter.'],
                 canCreate: false
             };
         }
 
         const files = this.templateManager.getPlannedFiles(template, request.projectName);
-        const collisions = this.templateManager.getCollisions(template, request.targetDir, request.projectName);
 
         return {
             kind: request.kind,
@@ -84,7 +77,6 @@ export class ProjectCreationService {
             projectName: request.projectName,
             targetDir: request.targetDir,
             files,
-            collisions,
             warnings,
             canCreate: warnings.length === 0
         };
@@ -143,7 +135,4 @@ export class ProjectCreationService {
         return warnings;
     }
 
-    private fileExistsWarningPath(filePath: string): string[] {
-        return fs.existsSync(filePath) ? [filePath] : [];
-    }
 }

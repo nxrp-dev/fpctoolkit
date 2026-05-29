@@ -15,27 +15,19 @@ export class ServerExecutableResolver {
     }
 
     public resolve(): ServerExecutableInfo {
-        let bundledServerRelativePath = 'pasls';
-        const configuredPath = vscode.workspace
-            .getConfiguration('nexusPascal.languageServer')
-            .get<string>('executablePath');
-        const configuredExecutable = configuredPath?.trim();
-
         const platform = process.platform;
         const arch = process.arch;
+        let bundledServerRelativePath: string;
         let targetCPU: string;
         let targetOS: string;
 
         if (arch === 'x64') {
             targetCPU = 'x86_64';
             if (platform === 'win32') {
-                bundledServerRelativePath = 'pasls-x86_64-win64/pasls.exe';
                 targetOS = 'win64';
             } else if (platform === 'linux') {
-                bundledServerRelativePath = 'pasls-x86_64-linux/pasls';
                 targetOS = 'linux';
             } else if (platform === 'darwin') {
-                bundledServerRelativePath = 'pasls-x86_64-darwin/pasls';
                 targetOS = 'darwin';
             } else {
                 throw new Error('Invalid platform');
@@ -43,14 +35,12 @@ export class ServerExecutableResolver {
         } else if (arch === 'arm64') {
             targetCPU = 'aarch64';
             if (platform === 'linux') {
-                bundledServerRelativePath = 'pasls-aarch64-linux/pasls';
                 targetOS = 'linux';
             } else if (platform === 'darwin') {
-                bundledServerRelativePath = 'pasls-aarch64-darwin/pasls';
                 targetOS = 'darwin';
             } else if (platform === 'win32') {
                 targetOS = 'win64';
-                bundledServerRelativePath = 'pasls-x86_64-win64/pasls.exe';
+                targetCPU = 'x86_64';
             } else {
                 throw new Error('Invalid platform');
             }
@@ -58,16 +48,13 @@ export class ServerExecutableResolver {
             throw new Error('Invalid architecture');
         }
 
-        if (process.env.DEBUG_MODE === 'true') {
-            bundledServerRelativePath = platform === 'win32'
-                ? 'debug/paslsproxy.exe'
-                : 'debug/paslsproxy';
-        }
+        bundledServerRelativePath = path.join(
+            `${targetCPU}-${targetOS}`,
+            platform === 'win32' ? 'nexusls.exe' : 'nexusls'
+        );
 
         return {
-            executable: configuredExecutable && configuredExecutable.length > 0
-                ? configuredExecutable
-                : path.resolve(this.extensionPaths.getFilePath('bin'), bundledServerRelativePath),
+            executable: path.resolve(this.extensionPaths.getFilePath('bin'), bundledServerRelativePath),
             targetOS,
             targetCPU
         };

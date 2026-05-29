@@ -74,30 +74,10 @@ export class InitializationOptions {
     public symbolDatabase: string | undefined;
     // FPC compiler options (passed to Code Tools)
     public fpcOptions: Array<string> = [];
-    // Maximum number of completion items to be returned
-    // if the threshold is reached then CompletionList.isIncomplete = true
-    public maximumCompletions: number = 100;
-    // Policy which determines how overloaded document symbols are displayed
-    public overloadPolicy: number | undefined;
-    // procedure completions with parameters are inserted as snippets
-    public insertCompletionsAsSnippets: boolean | undefined;
-    // procedure completions with parameters (non-snippet) insert
-    // empty brackets (and insert as snippet)
-    public insertCompletionProcedureBrackets: boolean | undefined;
-    // workspaces folders will be added to unit paths (i.e. -Fu)
-    public includeWorkspaceFoldersAsUnitPaths: boolean | undefined;
-    // workspaces folders will be added to include paths (i.e. -Fi)
-    public includeWorkspaceFoldersAsIncludePaths: boolean | undefined;
     // syntax will be checked when file opens or saves
     public checkSyntax: boolean | undefined;
     // syntax errors will be published as diagnostics
     public publishDiagnostics: boolean | undefined;
-    // enable workspace symbols
-    public workspaceSymbols: boolean | undefined;
-    // enable document symbols
-    public documentSymbols: boolean | undefined;
-    // completions contain a minimal amount of extra information
-    public minimalisticCompletions: boolean | undefined;
     // syntax errors as shown in the UI with ‘window/showMessage’
     public showSyntaxErrors: boolean | undefined;
     // ignores completion items like "begin" and "var" which may interfer with IDE snippets
@@ -114,18 +94,9 @@ export class InitializationOptions {
 
     constructor() {
         let cfg = vscode.workspace.getConfiguration('nexusPascal.languageServer.initializationOptions');
-        this.program = cfg.get<string>('program');
-        this.maximumCompletions = cfg.get<number>('maximumCompletions', 100);
         this.fpcOptions = cfg.get<Array<string>>("fpcOptions", []);
-        this.overloadPolicy = cfg.get<number>("overloadPolicy");
-        this.insertCompletionsAsSnippets = cfg.get<boolean>('insertCompletionsAsSnippets');
-        this.includeWorkspaceFoldersAsIncludePaths = cfg.get<boolean>('includeWorkspaceFoldersAsIncludePaths');
-        this.includeWorkspaceFoldersAsUnitPaths = cfg.get<boolean>('includeWorkspaceFoldersAsUnitPaths');
         this.checkSyntax = cfg.get<boolean>('checkSyntax');
         this.publishDiagnostics = cfg.get<boolean>('publishDiagnostics');
-        this.workspaceSymbols = cfg.get<boolean>('workspaceSymbols');
-        this.documentSymbols = cfg.get<boolean>('documentSymbols');
-        this.minimalisticCompletions = cfg.get<boolean>('minimalisticCompletions');
         this.showSyntaxErrors = cfg.get<boolean>('showSyntaxErrors');
         this.ignoreTextCompletions = cfg.get<boolean>('ignoreTextCompletions');
     }

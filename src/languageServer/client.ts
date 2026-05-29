@@ -228,16 +228,16 @@ export class PascalLanguageClientService implements ErrorHandler {
         await this.notifications?.completeCode(editor);
     }
 
-    public async formatCode(fileUri: string, configUri: string): Promise<void> {
+    public async executeCommand<T = unknown>(command: string, args: unknown[] = []): Promise<T> {
         if (!this.client) {
-            this.logger.appendLine('Language server client is not available for formatting');
-            return;
+            this.logger.appendLine(`Language server client is not available for command ${command}`);
+            throw new Error('Language server client is not available.');
         }
 
         const request: ExecuteCommandParams = {
-            command: 'pasls.formatCode',
-            arguments: [fileUri, configUri]
+            command,
+            arguments: args
         };
-        await this.client.sendRequest(ExecuteCommandRequest.type, request);
+        return this.client.sendRequest(ExecuteCommandRequest.type, request) as Promise<T>;
     }
 }

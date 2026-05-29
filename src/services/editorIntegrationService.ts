@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { configuration } from '../common/configuration';
 import type { PascalLanguageClientService } from '../languageServer/client';
 
 export class EditorIntegrationService implements vscode.Disposable {
@@ -27,7 +26,6 @@ export class EditorIntegrationService implements vscode.Disposable {
             }
 
             this.logger.appendLine(`Visible Pascal editor: ${editor.document.languageId} ${editor.document.uri.fsPath}`);
-            editor.options.tabSize = configuration.get<number>('format.tabSize', 2);
             this.getClient()?.onDidChangeVisibleTextEditor(editor);
         }
     }

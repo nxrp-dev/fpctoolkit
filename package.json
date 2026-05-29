@@ -289,44 +289,6 @@
           "nexusPascal.toolchain.lazarusDirectory": {
             "type": "string",
             "markdownDescription": "%config.toolchain.lazarusDirectory%"
-          },
-          "nexusPascal.toolchain.targetOS": {
-            "type": "string",
-            "markdownDescription": "%config.toolchain.targetOS%",
-            "examples": [
-              "linux",
-              "win32",
-              "win64",
-              "Darwin"
-            ]
-          },
-          "nexusPascal.toolchain.targetCPU": {
-            "type": "string",
-            "markdownDescription": "%config.toolchain.targetCPU%",
-            "examples": [
-              "x86_64",
-              "aarch64",
-              "i386"
-            ]
-          }
-        }
-      },
-      {
-        "title": "Nexus Pascal Formatting",
-        "properties": {
-          "nexusPascal.format.tabSize": {
-            "type": "number",
-            "default": 2,
-            "markdownDescription": "%config.format.tabSize%"
-          },
-          "nexusPascal.format.enabled": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.format.enabled%"
-          },
-          "nexusPascal.format.configPath": {
-            "type": "string",
-            "description": "%config.format.configPath%"
           }
         }
       },
@@ -356,10 +318,6 @@
       {
         "title": "Nexus Pascal Language Server",
         "properties": {
-          "nexusPascal.languageServer.executablePath": {
-            "type": "string",
-            "description": "%config.languageServer.executablePath%"
-          },
           "nexusPascal.languageServer.fpcSourceDirectory": {
             "type": "string",
             "markdownDescription": "%config.languageServer.fpcSourceDirectory%"
@@ -375,51 +333,6 @@
             "default": "off",
             "description": "%config.languageServer.trace.server%"
           },
-          "nexusPascal.languageServer.initializationOptions.program": {
-            "type": "string",
-            "description": "%config.languageServer.initializationOptions.program%"
-          },
-          "nexusPascal.languageServer.initializationOptions.overloadPolicy": {
-            "type": "number",
-            "scope": "application",
-            "default": 3,
-            "enum": [
-              1,
-              2,
-              3
-            ],
-            "enumDescriptions": [
-              "%config.languageServer.enum.overloadPolicy_1%",
-              "%config.languageServer.enum.overloadPolicy_2%",
-              "%config.languageServer.enum.overloadPolicy_3%"
-            ],
-            "description": "%config.languageServer.initializationOptions.overloadPolicy%"
-          },
-          "nexusPascal.languageServer.initializationOptions.maximumCompletions": {
-            "type": "number",
-            "default": 50,
-            "markdownDescription": "%config.languageServer.initializationOptions.maximumCompletions%"
-          },
-          "nexusPascal.languageServer.initializationOptions.insertCompletionsAsSnippets": {
-            "type": "boolean",
-            "default": false,
-            "description": "%config.languageServer.initializationOptions.insertCompletionsAsSnippets%"
-          },
-          "nexusPascal.languageServer.initializationOptions.insertCompletionProcedureBrackets": {
-            "type": "boolean",
-            "default": false,
-            "description": "%config.languageServer.initializationOptions.insertCompletionProcedureBrackets%"
-          },
-          "nexusPascal.languageServer.initializationOptions.includeWorkspaceFoldersAsUnitPaths": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.languageServer.initializationOptions.includeWorkspaceFoldersAsUnitPaths%"
-          },
-          "nexusPascal.languageServer.initializationOptions.includeWorkspaceFoldersAsIncludePaths": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.languageServer.initializationOptions.includeWorkspaceFoldersAsIncludePaths%"
-          },
           "nexusPascal.languageServer.initializationOptions.checkSyntax": {
             "type": "boolean",
             "scope": "application",
@@ -431,21 +344,6 @@
             "scope": "application",
             "default": false,
             "description": "%config.languageServer.initializationOptions.publishDiagnostics%"
-          },
-          "nexusPascal.languageServer.initializationOptions.workspaceSymbols": {
-            "type": "boolean",
-            "default": false,
-            "description": "%config.languageServer.initializationOptions.workspaceSymbols%"
-          },
-          "nexusPascal.languageServer.initializationOptions.documentSymbols": {
-            "type": "boolean",
-            "default": true,
-            "description": "%config.languageServer.initializationOptions.documentSymbols%"
-          },
-          "nexusPascal.languageServer.initializationOptions.minimalisticCompletions": {
-            "type": "boolean",
-            "default": false,
-            "description": "%config.languageServer.initializationOptions.minimalisticCompletions%"
           },
           "nexusPascal.languageServer.initializationOptions.showSyntaxErrors": {
             "type": "boolean",

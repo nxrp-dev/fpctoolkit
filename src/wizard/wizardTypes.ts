@@ -33,6 +33,14 @@ export interface WizardMessage {
     text: string;
 }
 
+export interface WizardConflict {
+    source: 'client' | 'server';
+    severity: WizardMessageSeverity;
+    code: string;
+    text: string;
+    path?: string;
+}
+
 export interface WizardOutput {
     label: string;
     path: string;
@@ -48,6 +56,7 @@ export interface WizardPlan {
     summary: string;
     canExecute: boolean;
     messages: WizardMessage[];
+    conflicts?: WizardConflict[];
     outputs: WizardOutput[];
     details: WizardDetail[];
 }

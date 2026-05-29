@@ -19,4 +19,12 @@ export class LanguageClientHandle {
     public async completeCode(editor: vscode.TextEditor): Promise<void> {
         await this.client?.doCodeComplete(editor);
     }
+
+    public async executeCommand<T = unknown>(command: string, args: unknown[] = []): Promise<T> {
+        if (!this.client) {
+            throw new Error('Language server is not available.');
+        }
+
+        return this.client.executeCommand<T>(command, args);
+    }
 }
